@@ -32,8 +32,10 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var locClient: LocationClient
     private lateinit var dao: TrackPointDao
+    // KART: Klient for å hente posisjon direkte fra Google Play Services.
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    // KART: Callbacks for å kommunisere fra Activity-logikk til Compose UI.
     private var setTrackingForCompose: ((Boolean) -> Unit)? = null
     private var setHasPermissionForCompose: ((Boolean) -> Unit)? = null
     private var addPointToPathForCompose: ((LatLng) -> Unit)? = null
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
     ) { grants ->
         val granted = grants.values.any { it }
         if (granted) {
+            // KART: Informer Compose om at tillatelse er gitt.
             setHasPermissionForCompose?.invoke(true)
         }
     }
@@ -56,7 +59,8 @@ class MainActivity : ComponentActivity() {
     private fun startLocationTrackingLogic() {
         locClient.start { lat, lon, acc ->
             val newPoint = LatLng(lat, lon)
-            addPointToPathForCompose?.invoke(newPoint) // Add point to the polyline
+            // KART: Legg til nytt punkt i den tegnede ruten (Polyline).
+            addPointToPathForCompose?.invoke(newPoint)
 
             lifecycleScope.launch {
                 dao.insert(
@@ -78,23 +82,29 @@ class MainActivity : ComponentActivity() {
 
         locClient = LocationClient(this)
         dao = AppDatabase.getInstance(this).trackPointDao()
+        // KART: Initialiser posisjonsklienten.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         setContent {
             BachelorAppH2025Theme {
                 var tracking by remember { mutableStateOf(false) }
                 var hasLocationPermission by remember { mutableStateOf(hasPermission()) }
+                // KART: Liste over punkter for å tegne ruten (Polyline).
                 var pathPoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
 
+                // KART: Koble callbacks til Compose state-variabler.
                 setTrackingForCompose = { isTracking -> tracking = isTracking }
                 setHasPermissionForCompose = { hasPermission -> hasLocationPermission = hasPermission }
                 addPointToPathForCompose = { newPoint -> pathPoints = pathPoints + newPoint }
 
+                // KART: Startposisjon for kameraet (Oslo) før brukerposisjon er kjent.
                 val oslo = LatLng(59.9139, 10.7522)
                 val cameraPositionState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(oslo, 10f)
                 }
 
+                // KART: Effekt som kjører når appen får posisjonstillatelse.
+                // Setter opp en kontinuerlig lytter for å følge brukerens posisjon.
                 DisposableEffect(hasLocationPermission) {
                     if (hasLocationPermission) {
                         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L).build()
@@ -103,6 +113,7 @@ class MainActivity : ComponentActivity() {
                             override fun onLocationResult(result: LocationResult) {
                                 result.lastLocation?.let {
                                     val userLatLng = LatLng(it.latitude, it.longitude)
+                                    // KART: Flytt kameraet for å følge brukeren.
                                     cameraPositionState.position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
                                 }
                             }
@@ -110,6 +121,7 @@ class MainActivity : ComponentActivity() {
 
                         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
 
+                        // KART: Rydd opp og fjern lytteren når skjermen lukkes for å spare batteri.
                         onDispose {
                             fusedLocationClient.removeLocationUpdates(locationCallback)
                         }
@@ -121,7 +133,8 @@ class MainActivity : ComponentActivity() {
                 fun startTracking() {
                     if (hasPermission()) {
                         hasLocationPermission = true
-                        pathPoints = emptyList() // Clear the previous path
+                        // KART: Tøm forrige rute før en ny startes.
+                        pathPoints = emptyList()
                         startLocationTrackingLogic()
                     } else {
                         requestPerms.launch(arrayOf(
@@ -137,17 +150,20 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Box(Modifier.fillMaxSize()) {
+                    // KART: Hovedkomponenten for Google Maps.
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
                         properties = MapProperties(
+                            // KART: Viser den blå "min posisjon"-prikken.
                             isMyLocationEnabled = hasLocationPermission
                         ),
                         uiSettings = MapUiSettings(
+                            // KART: Skjuler sikte-knappen siden kameraet følger automatisk.
                             myLocationButtonEnabled = false
                         )
                     ) {
-                        // Draw the polyline on the map if it has points
+                        // KART: Tegner ruten som en rød linje på kartet.
                         if (pathPoints.size > 1) {
                             Polyline(
                                 points = pathPoints,

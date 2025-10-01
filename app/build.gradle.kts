@@ -59,8 +59,11 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation("com.google.android.gms:play-services-location:21.3.0") // Google Play services location
-    implementation("com.google.android.gms:play-services-maps:18.2.0") // Google Play services maps
-    implementation("com.google.maps.android:maps-compose:4.3.3") // Google Maps for Compose
+
+    // KART: Avhengigheter for Google Maps
+    implementation("com.google.android.gms:play-services-maps:18.2.0")       // Kjernefunksjonalitet for Maps
+    implementation("com.google.maps.android:maps-compose:4.3.3")        // Jetpack Compose-støtte for Maps
+
     implementation("com.google.code.gson:gson:2.11.0") // For å konvertere til JSON
 
 

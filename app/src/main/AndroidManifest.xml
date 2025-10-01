@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- KART: Tillatelse for nøyaktig posisjon (GPS). Nødvendig for kart og sporing. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- KART: Tillatelse for mindre nøyaktig posisjon (nettverk/Wi-Fi). Brukes som fallback. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
@@ -15,7 +17,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BachelorAppH2025">
 
-
+        <!-- KART: API-nøkkel for Google Maps. Uten denne vil ikke kartet vises. -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCGRfWqGznlQfLPsVWEE3DGddlwTTPR7Ss" />
