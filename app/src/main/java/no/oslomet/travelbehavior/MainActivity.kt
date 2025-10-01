@@ -13,16 +13,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 import no.oslomet.travelbehavior.location.LocationClient
 import no.oslomet.travelbehavior.ui.theme.BachelorAppH2025Theme
@@ -38,6 +36,7 @@ class MainActivity : ComponentActivity() {
 
     private var setTrackingForCompose: ((Boolean) -> Unit)? = null
     private var setHasPermissionForCompose: ((Boolean) -> Unit)? = null
+    private var addPointToPathForCompose: ((LatLng) -> Unit)? = null
 
     private val requestPerms = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -45,7 +44,6 @@ class MainActivity : ComponentActivity() {
         val granted = grants.values.any { it }
         if (granted) {
             setHasPermissionForCompose?.invoke(true)
-            startLocationTrackingLogic()
         }
     }
 
@@ -57,6 +55,9 @@ class MainActivity : ComponentActivity() {
 
     private fun startLocationTrackingLogic() {
         locClient.start { lat, lon, acc ->
+            val newPoint = LatLng(lat, lon)
+            addPointToPathForCompose?.invoke(newPoint) // Add point to the polyline
+
             lifecycleScope.launch {
                 dao.insert(
                     TrackPoint(
@@ -83,16 +84,17 @@ class MainActivity : ComponentActivity() {
             BachelorAppH2025Theme {
                 var tracking by remember { mutableStateOf(false) }
                 var hasLocationPermission by remember { mutableStateOf(hasPermission()) }
+                var pathPoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
 
                 setTrackingForCompose = { isTracking -> tracking = isTracking }
                 setHasPermissionForCompose = { hasPermission -> hasLocationPermission = hasPermission }
+                addPointToPathForCompose = { newPoint -> pathPoints = pathPoints + newPoint }
 
                 val oslo = LatLng(59.9139, 10.7522)
                 val cameraPositionState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(oslo, 10f)
                 }
 
-                // This effect will listen for location changes and move the camera
                 DisposableEffect(hasLocationPermission) {
                     if (hasLocationPermission) {
                         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L).build()
@@ -101,7 +103,6 @@ class MainActivity : ComponentActivity() {
                             override fun onLocationResult(result: LocationResult) {
                                 result.lastLocation?.let {
                                     val userLatLng = LatLng(it.latitude, it.longitude)
-                                    // Directly update camera position to follow the user
                                     cameraPositionState.position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
                                 }
                             }
@@ -120,6 +121,7 @@ class MainActivity : ComponentActivity() {
                 fun startTracking() {
                     if (hasPermission()) {
                         hasLocationPermission = true
+                        pathPoints = emptyList() // Clear the previous path
                         startLocationTrackingLogic()
                     } else {
                         requestPerms.launch(arrayOf(
@@ -142,9 +144,18 @@ class MainActivity : ComponentActivity() {
                             isMyLocationEnabled = hasLocationPermission
                         ),
                         uiSettings = MapUiSettings(
-                            myLocationButtonEnabled = false // Satt til false for å fjerne knappen
+                            myLocationButtonEnabled = false
                         )
-                    )
+                    ) {
+                        // Draw the polyline on the map if it has points
+                        if (pathPoints.size > 1) {
+                            Polyline(
+                                points = pathPoints,
+                                color = Color.Red,
+                                width = 8f
+                            )
+                        }
+                    }
 
                     Row(
                         modifier = Modifier
