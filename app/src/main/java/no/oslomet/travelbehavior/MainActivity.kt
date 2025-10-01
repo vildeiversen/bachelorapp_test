@@ -1,8 +1,10 @@
 package no.oslomet.travelbehavior
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,43 +16,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import no.oslomet.travelbehavior.location.LocationClient
 import no.oslomet.travelbehavior.ui.theme.BachelorAppH2025Theme
 import no.oslomet.travelbehavior.data.AppDatabase
 import no.oslomet.travelbehavior.data.TrackPoint
 import no.oslomet.travelbehavior.data.TrackPointDao
-import no.oslomet.travelbehavior.network.buildUploadPayload
-import no.oslomet.travelbehavior.util.pseudoDeviceId
-import no.oslomet.travelbehavior.BuildConfig
-
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var locClient: LocationClient
     private lateinit var dao: TrackPointDao
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
-    private var setTracking: ((Boolean) -> Unit)? = null
+    private var setTrackingForCompose: ((Boolean) -> Unit)? = null
+    private var setHasPermissionForCompose: ((Boolean) -> Unit)? = null
 
     private val requestPerms = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) startAfterPermission()
+        val granted = grants.values.any { it }
+        if (granted) {
+            setHasPermissionForCompose?.invoke(true)
+            startLocationTrackingLogic()
+        }
     }
 
     private fun hasPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(
+        return ContextCompat.checkSelfPermission(
             this, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        return fine || coarse
     }
 
-    private fun startAfterPermission() {
+    private fun startLocationTrackingLogic() {
         locClient.start { lat, lon, acc ->
             lifecycleScope.launch {
                 dao.insert(
@@ -63,56 +68,95 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.d("GPS", "Lagret punkt #$count: $lat, $lon")
             }
         }
-        setTracking?.invoke(true)
+        setTrackingForCompose?.invoke(true)
     }
 
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         locClient = LocationClient(this)
         dao = AppDatabase.getInstance(this).trackPointDao()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         setContent {
             BachelorAppH2025Theme {
                 var tracking by remember { mutableStateOf(false) }
-                setTracking = { tracking = it }
+                var hasLocationPermission by remember { mutableStateOf(hasPermission()) }
 
-                fun start() {
-                    if (hasPermission()) startAfterPermission()
-                    else requestPerms.launch(arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    ))
+                setTrackingForCompose = { isTracking -> tracking = isTracking }
+                setHasPermissionForCompose = { hasPermission -> hasLocationPermission = hasPermission }
+
+                val oslo = LatLng(59.9139, 10.7522)
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(oslo, 10f)
                 }
 
-                fun stop() { locClient.stop(); tracking = false }
+                // This effect will listen for location changes and move the camera
+                DisposableEffect(hasLocationPermission) {
+                    if (hasLocationPermission) {
+                        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L).build()
 
-                fun previewPayload() {
-                    lifecycleScope.launch {
-                        val pending: List<TrackPoint> = dao.getPending(limit = 500)
-                        val payload = buildUploadPayload(
-                            deviceId = pseudoDeviceId(this@MainActivity),
-                            appVersion = BuildConfig.VERSION_NAME,
-                            points = pending
-                        )
-                        val json = com.google.gson.GsonBuilder()
-                            .setPrettyPrinting().create().toJson(payload)
-                        android.util.Log.d("API", json)  // For å se i Logcat (taggen er "API")
+                        val locationCallback = object : LocationCallback() {
+                            override fun onLocationResult(result: LocationResult) {
+                                result.lastLocation?.let {
+                                    val userLatLng = LatLng(it.latitude, it.longitude)
+                                    // Directly update camera position to follow the user
+                                    cameraPositionState.position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
+                                }
+                            }
+                        }
+
+                        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+
+                        onDispose {
+                            fusedLocationClient.removeLocationUpdates(locationCallback)
+                        }
+                    } else {
+                        onDispose { }
                     }
                 }
 
+                fun startTracking() {
+                    if (hasPermission()) {
+                        hasLocationPermission = true
+                        startLocationTrackingLogic()
+                    } else {
+                        requestPerms.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ))
+                    }
+                }
+
+                fun stopTracking() {
+                    locClient.stop()
+                    tracking = false
+                }
+
                 Box(Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        properties = MapProperties(
+                            isMyLocationEnabled = hasLocationPermission
+                        ),
+                        uiSettings = MapUiSettings(
+                            myLocationButtonEnabled = false // Satt til false for å fjerne knappen
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         if (!tracking) {
-                            Button(onClick = { start() }) { Text("Start tracking (foreground)") }
+                            Button(onClick = { startTracking() }) { Text("Start") }
                         } else {
-                            Button(onClick = { stop() }) { Text("Stop tracking") }
+                            Button(onClick = { stopTracking() }) { Text("Stopp") }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { previewPayload() }) { Text("Preview payload (JSON)") }
                     }
                 }
             }
