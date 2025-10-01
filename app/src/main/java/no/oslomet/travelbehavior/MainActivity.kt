@@ -107,7 +107,8 @@ class MainActivity : ComponentActivity() {
                 // Setter opp en kontinuerlig lytter for å følge brukerens posisjon.
                 DisposableEffect(hasLocationPermission) {
                     if (hasLocationPermission) {
-                        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L).build()
+                        // Endret intervallet til 1 sekund for jevnere kamerafølging.
+                        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L).build()
 
                         val locationCallback = object : LocationCallback() {
                             override fun onLocationResult(result: LocationResult) {
