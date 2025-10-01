@@ -25,11 +25,17 @@ import no.oslomet.travelbehavior.network.buildUploadPayload
 import no.oslomet.travelbehavior.util.pseudoDeviceId
 import com.google.firebase.auth.FirebaseAuth
 
+import no.oslomet.travelbehavior.data.FirebaseRepository
+import no.oslomet.travelbehavior.data.TrackPointDto
+
+
 class MainActivity : ComponentActivity() {
+
 
     // 1) Services/avhengigheter vi trenger på aktivitetsnivå
     private lateinit var locClient: LocationClient
     private lateinit var dao: TrackPointDao
+
 
     // 2) “Bro” fra ikke-Compose-kode til Compose-state (slik at vi kan skru på/av “tracking” fra callback)
     private var setTracking: ((Boolean) -> Unit)? = null
@@ -74,27 +80,59 @@ class MainActivity : ComponentActivity() {
         setTracking?.invoke(true)
     }
 
-    private fun ensureFirebaseLogin(onReady: () -> Unit) {
-        // 1. Henter en instans av Firebase Authentication-tjenesten
+    private fun ensureFirebaseLogin() {
         val auth = FirebaseAuth.getInstance()
 
-        // 2. Sjekker om en bruker allerede er logget inn
         if (auth.currentUser != null) {
-            // Hvis ja: Supert! Vi kan fortsette. Kaller onReady() umiddelbart.
-            onReady()
+            // Kjør røyk-testen hvis allerede logget inn
+            lifecycleScope.launch {
+                android.util.Log.d("FB", "UID = ${FirebaseAuth.getInstance().currentUser?.uid}")
+                runSmokeTest()
+            }
         } else {
-            // 3. Hvis nei: Logger inn brukeren anonymt
             auth.signInAnonymously()
                 .addOnCompleteListener {
-                    // Når innloggingen er vellykket, kan vi fortsette.
-                    onReady()
+                    if (it.isSuccessful) {
+                        android.util.Log.d("FB", "Firebase anonymous login ready")
+                        // 🚀 Kjør røyk-testen etter innlogging
+                        lifecycleScope.launch {
+                            runSmokeTest()
+                        }
+                    } else {
+                        android.util.Log.e("FB", "Anonymous sign-in failed", it.exception)
+                    }
                 }
                 .addOnFailureListener { e ->
-                    // Hvis noe gikk galt under innlogging.
                     android.util.Log.e("FB", "Anonymous sign-in failed", e)
                 }
         }
     }
+
+    /**
+     * Selve røyk-testen: start en tur og legg inn ett punkt i Firestore.
+     */
+    private suspend fun runSmokeTest() {
+        try {
+            val repo = FirebaseRepository()
+            val tripId = repo.startTrip()
+            android.util.Log.d("FirebaseSmokeTest", "Started trip: $tripId")
+
+            val testPoint = TrackPointDto(
+                timestamp = com.google.firebase.Timestamp.now(),
+                lat = 59.9139,
+                lon = 10.7522,
+                acc = 5.0f
+            )
+            repo.addTrackPoint(tripId, testPoint)
+            android.util.Log.d("FirebaseSmokeTest", "Added one TrackPoint to trip $tripId")
+
+            // repo.endTrip(tripId) // kan brukes hvis du vil avslutte turen
+            android.util.Log.d("FirebaseSmokeTest", "Smoke test OK ✅ sjekk Firestore Console")
+        } catch (e: Exception) {
+            android.util.Log.e("FirebaseSmokeTest", "Smoke test failed", e)
+        }
+    }
+
     /* Anonym Autentisering: Koden bruker Firebase Anonymous Authentication.
         Dette er en smart måte å gi hver app-installasjon en unik, midlertidig bruker-ID i
         Firebase-systemet uten at brukeren trenger å oppgi e-post, passord eller logge inn med
@@ -118,9 +156,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        ensureFirebaseLogin {
-            android.util.Log.d("FB", "Firebase anonymous login ready")
-        }
+        ensureFirebaseLogin()
 
         // Init av tjenester som trenger en Context
         locClient = LocationClient(this)
@@ -186,7 +222,9 @@ class MainActivity : ComponentActivity() {
                 // Enkelt UI: start/stop + preview-knapp
                 Box(Modifier.fillMaxSize()) {
                     Column(
-                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         if (!tracking) {

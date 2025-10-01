@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 
-// Denne definerer "Data Access Object", altså hvordan vi leser/lagrer/oppdaterer data
+// Denne definerer "Data Access Object", altså hvordan vi leser/lagrer/oppdaterer data (for Room)
 @Dao
 interface TrackPointDao {
     @Insert
