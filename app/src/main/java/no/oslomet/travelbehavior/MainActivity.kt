@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private var setTrackingForCompose: ((Boolean) -> Unit)? = null
     private var setHasPermissionForCompose: ((Boolean) -> Unit)? = null
     private var addPointToPathForCompose: ((LatLng) -> Unit)? = null
+    private var setTrackingRequestPendingForCompose: ((Boolean) -> Unit)? = null
 
     private val requestPerms = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -47,6 +49,10 @@ class MainActivity : ComponentActivity() {
         if (granted) {
             // KART: Informer Compose om at tillatelse er gitt.
             setHasPermissionForCompose?.invoke(true)
+        } else {
+            // KART: Bruker avslo tillatelse. Nullstill flagget og vis en melding.
+            setTrackingRequestPendingForCompose?.invoke(false)
+            Toast.makeText(this, "Posisjonstillatelse er nødvendig for sporing.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -85,22 +91,43 @@ class MainActivity : ComponentActivity() {
         // KART: Initialiser posisjonsklienten.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        // KART: Be om posisjonstillatelse ved oppstart hvis den ikke allerede er gitt.
+        if (!hasPermission()) {
+            requestPerms.launch(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ))
+        }
+
         setContent {
             BachelorAppH2025Theme {
                 var tracking by remember { mutableStateOf(false) }
                 var hasLocationPermission by remember { mutableStateOf(hasPermission()) }
                 // KART: Liste over punkter for å tegne ruten (Polyline).
                 var pathPoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
+                // KART: Flag som venter på posisjonstillatelse etter at "Start" er trykket.
+                var trackingRequestPendingPermission by remember { mutableStateOf(false) }
 
                 // KART: Koble callbacks til Compose state-variabler.
                 setTrackingForCompose = { isTracking -> tracking = isTracking }
                 setHasPermissionForCompose = { hasPermission -> hasLocationPermission = hasPermission }
                 addPointToPathForCompose = { newPoint -> pathPoints = pathPoints + newPoint }
+                setTrackingRequestPendingForCompose = { isPending -> trackingRequestPendingPermission = isPending }
+
 
                 // KART: Startposisjon for kameraet (Oslo) før brukerposisjon er kjent.
                 val oslo = LatLng(59.9139, 10.7522)
                 val cameraPositionState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(oslo, 10f)
+                }
+
+                // KART: Effekt som starter sporing automatisk ETTER at tillatelse er gitt via "Start"-knappen.
+                LaunchedEffect(hasLocationPermission) {
+                    if (hasLocationPermission && trackingRequestPendingPermission) {
+                        pathPoints = emptyList()
+                        startLocationTrackingLogic()
+                        trackingRequestPendingPermission = false // Nullstill flagget
+                    }
                 }
 
                 // KART: Effekt som kjører når appen får posisjonstillatelse.
@@ -138,6 +165,8 @@ class MainActivity : ComponentActivity() {
                         pathPoints = emptyList()
                         startLocationTrackingLogic()
                     } else {
+                        // KART: Sett flag og be om tillatelse. Effekten over vil starte sporingen.
+                        trackingRequestPendingPermission = true
                         requestPerms.launch(arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
                             Manifest.permission.ACCESS_COARSE_LOCATION
