@@ -5,20 +5,25 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.*
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -107,13 +112,17 @@ class MainActivity : ComponentActivity() {
                 var pathPoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
                 // KART: Flag som venter på posisjonstillatelse etter at "Start" er trykket.
                 var trackingRequestPendingPermission by remember { mutableStateOf(false) }
+                val context = LocalContext.current
+
+                // KART: Variabel for å holde på brukerens nåværende posisjon.
+                var userLocation by remember { mutableStateOf<LatLng?>(null) }
+                val coroutineScope = rememberCoroutineScope()
 
                 // KART: Koble callbacks til Compose state-variabler.
                 setTrackingForCompose = { isTracking -> tracking = isTracking }
                 setHasPermissionForCompose = { hasPermission -> hasLocationPermission = hasPermission }
                 addPointToPathForCompose = { newPoint -> pathPoints = pathPoints + newPoint }
                 setTrackingRequestPendingForCompose = { isPending -> trackingRequestPendingPermission = isPending }
-
 
                 // KART: Startposisjon for kameraet (Oslo) før brukerposisjon er kjent.
                 val oslo = LatLng(59.9139, 10.7522)
@@ -131,27 +140,30 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // KART: Effekt som kjører når appen får posisjonstillatelse.
-                // Setter opp en kontinuerlig lytter for å følge brukerens posisjon.
+                // Setter opp en kontinuerlig lytter for å hente brukerens posisjon.
                 DisposableEffect(hasLocationPermission) {
                     if (hasLocationPermission) {
-                        // Endret intervallet til 1 sekund for jevnere kamerafølging.
-                        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L).build()
+                        try {
+                            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L).build()
 
-                        val locationCallback = object : LocationCallback() {
-                            override fun onLocationResult(result: LocationResult) {
-                                result.lastLocation?.let {
-                                    val userLatLng = LatLng(it.latitude, it.longitude)
-                                    // KART: Flytt kameraet for å følge brukeren.
-                                    cameraPositionState.position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
+                            val locationCallback = object : LocationCallback() {
+                                override fun onLocationResult(result: LocationResult) {
+                                    result.lastLocation?.let {
+                                        // KART: Lagre brukerposisjon, men IKKE flytt kameraet.
+                                        userLocation = LatLng(it.latitude, it.longitude)
+                                    }
                                 }
                             }
-                        }
 
-                        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+                            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
 
-                        // KART: Rydd opp og fjern lytteren når skjermen lukkes for å spare batteri.
-                        onDispose {
-                            fusedLocationClient.removeLocationUpdates(locationCallback)
+                            onDispose {
+                                fusedLocationClient.removeLocationUpdates(locationCallback)
+                            }
+                        } catch (e: SecurityException) {
+                            Log.e("MainActivity", "Klarte ikke å starte posisjonsoppdatering på grunn av SecurityException.", e)
+                            Toast.makeText(context, "Posisjonstjenesten feilet. Prøv å 'Wipe Data' på emulatoren.", Toast.LENGTH_LONG).show()
+                            onDispose { } // Må ha en onDispose selv om den er tom
                         }
                     } else {
                         onDispose { }
@@ -161,11 +173,9 @@ class MainActivity : ComponentActivity() {
                 fun startTracking() {
                     if (hasPermission()) {
                         hasLocationPermission = true
-                        // KART: Tøm forrige rute før en ny startes.
                         pathPoints = emptyList()
                         startLocationTrackingLogic()
                     } else {
-                        // KART: Sett flag og be om tillatelse. Effekten over vil starte sporingen.
                         trackingRequestPendingPermission = true
                         requestPerms.launch(arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -185,15 +195,12 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
                         properties = MapProperties(
-                            // KART: Viser den blå "min posisjon"-prikken.
                             isMyLocationEnabled = hasLocationPermission
                         ),
                         uiSettings = MapUiSettings(
-                            // KART: Skjuler sikte-knappen siden kameraet følger automatisk.
-                            myLocationButtonEnabled = false
+                            myLocationButtonEnabled = false // Vi bruker vår egen knapp.
                         )
                     ) {
-                        // KART: Tegner ruten som en rød linje på kartet.
                         if (pathPoints.size > 1) {
                             Polyline(
                                 points = pathPoints,
@@ -213,6 +220,29 @@ class MainActivity : ComponentActivity() {
                             Button(onClick = { startTracking() }) { Text("Start") }
                         } else {
                             Button(onClick = { stopTracking() }) { Text("Stopp") }
+                        }
+                    }
+
+                    // KART: Knapp for å manuelt sentrere kameraet på brukerens posisjon.
+                    if (hasLocationPermission) {
+                        FloatingActionButton(
+                            onClick = {
+                                userLocation?.let { loc ->
+                                    coroutineScope.launch {
+                                        cameraPositionState.animate(
+                                            CameraUpdateFactory.newLatLngZoom(loc, 15f)
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = "Senterer kartet på din posisjon"
+                            )
                         }
                     }
                 }
