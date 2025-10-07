@@ -13,9 +13,11 @@ interface TrackPointDao {
     @Query("SELECT COUNT(*) FROM track_points")
     suspend fun count(): Int
 
-    @Query("SELECT * FROM track_points WHERE uploaded = 0 ORDER BY id LIMIT :limit")
+    @Query("SELECT * FROM track_points WHERE uploaded = 0 ORDER BY timestamp ASC LIMIT :limit")
     suspend fun getPending(limit: Int = 500): List<TrackPoint>
+
 
     @Query("UPDATE track_points SET uploaded = 1 WHERE id IN (:ids)")
     suspend fun markUploaded(ids: List<Long>)
+
 }

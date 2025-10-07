@@ -26,7 +26,9 @@ import no.oslomet.travelbehavior.util.pseudoDeviceId
 import com.google.firebase.auth.FirebaseAuth
 
 import no.oslomet.travelbehavior.data.FirebaseRepository
-import no.oslomet.travelbehavior.data.TrackPointDto
+import no.oslomet.travelbehavior.data.TripManager
+import no.oslomet.travelbehavior.data.SyncRepository
+
 
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +48,7 @@ class MainActivity : ComponentActivity() {
     ) { grants ->
         val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) startAfterPermission()
+        if (granted) beginTracking()
     }
 
     // 4) Sjekk om appen allerede har lokasjonstillatelser
@@ -79,59 +81,40 @@ class MainActivity : ComponentActivity() {
         // fortell UI at vi nå “tracker”
         setTracking?.invoke(true)
     }
+    private fun beginTracking() {
+        lifecycleScope.launch {
+            ensureFirebaseLogin()
+
+            val repo = FirebaseRepository()
+            val tripId = TripManager.getTripId(this@MainActivity)
+                ?: repo.startTrip().also {
+                    TripManager.saveTripId(this@MainActivity, it)
+                    android.util.Log.d("TRIP", "Started trip: $it")
+                }
+
+            android.util.Log.d("TRIP", "Active trip: $tripId")
+            startAfterPermission() // starter location + lagrer til Room
+        }
+    }
+
 
     private fun ensureFirebaseLogin() {
         val auth = FirebaseAuth.getInstance()
-
-        if (auth.currentUser != null) {
-            // Kjør røyk-testen hvis allerede logget inn
-            lifecycleScope.launch {
-                android.util.Log.d("FB", "UID = ${FirebaseAuth.getInstance().currentUser?.uid}")
-                runSmokeTest()
-            }
-        } else {
+        if (auth.currentUser == null) {
             auth.signInAnonymously()
-                .addOnCompleteListener {
-                    if (it.isSuccessful) {
-                        android.util.Log.d("FB", "Firebase anonymous login ready")
-                        // 🚀 Kjør røyk-testen etter innlogging
-                        lifecycleScope.launch {
-                            runSmokeTest()
-                        }
-                    } else {
-                        android.util.Log.e("FB", "Anonymous sign-in failed", it.exception)
-                    }
+                .addOnSuccessListener {
+                    android.util.Log.d("FB", "Anon login OK. uid=${auth.currentUser?.uid}")
                 }
                 .addOnFailureListener { e ->
-                    android.util.Log.e("FB", "Anonymous sign-in failed", e)
+                    android.util.Log.e("FB", "Anon login failed", e)
                 }
+        } else {
+            android.util.Log.d("FB", "Already logged in. uid=${auth.currentUser?.uid}")
         }
     }
 
-    /**
-     * Selve røyk-testen: start en tur og legg inn ett punkt i Firestore.
-     */
-    private suspend fun runSmokeTest() {
-        try {
-            val repo = FirebaseRepository()
-            val tripId = repo.startTrip()
-            android.util.Log.d("FirebaseSmokeTest", "Started trip: $tripId")
 
-            val testPoint = TrackPointDto(
-                timestamp = com.google.firebase.Timestamp.now(),
-                lat = 59.9139,
-                lon = 10.7522,
-                acc = 5.0f
-            )
-            repo.addTrackPoint(tripId, testPoint)
-            android.util.Log.d("FirebaseSmokeTest", "Added one TrackPoint to trip $tripId")
 
-            // repo.endTrip(tripId) // kan brukes hvis du vil avslutte turen
-            android.util.Log.d("FirebaseSmokeTest", "Smoke test OK ✅ sjekk Firestore Console")
-        } catch (e: Exception) {
-            android.util.Log.e("FirebaseSmokeTest", "Smoke test failed", e)
-        }
-    }
 
     /* Anonym Autentisering: Koden bruker Firebase Anonymous Authentication.
         Dette er en smart måte å gi hver app-installasjon en unik, midlertidig bruker-ID i
@@ -171,7 +154,7 @@ class MainActivity : ComponentActivity() {
                 // Klikk på “Start” → enten spør om tillatelse, eller starter sporing direkte
                 fun start() {
                     if (hasPermission()) {
-                        startAfterPermission()
+                        beginTracking()
                     } else {
                         requestPerms.launch(
                             arrayOf(
@@ -182,13 +165,26 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+
                 // Klikk på “Stop” → stopp strømmen
                 fun stop() {
                     locClient.stop()
                     tracking = false
+
+                    lifecycleScope.launch {
+                        val repo = FirebaseRepository()
+                        val tripId = TripManager.getTripId(this@MainActivity)
+                        if (tripId != null) {
+                            val sync = SyncRepository(dao, repo)
+                            sync.syncPending(tripId)   // ⬅️ skyv alt som gjenstår
+                            repo.endTrip(tripId)
+                            android.util.Log.d("TRIP", "Ended trip: $tripId")
+                        }
+                        TripManager.clearTripId(this@MainActivity)
+                    }
                 }
 
-                // Forhåndsvis payload (det vi ville sendt til Azure)
+                // Forhåndsvis payload (det vi ville sendt til Firestore)
                 // - Henter pending rader (uploaded=false)
                 // - Bygger JSON
                 // - Viser Toast + logger til Logcat (tag “API”)
@@ -235,6 +231,21 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.height(12.dp))
                         Button(onClick = { previewPayload() }) { Text("Preview payload (JSON)") }
                     }
+
+                    Button(onClick = {
+                        lifecycleScope.launch {
+                            val tripId = TripManager.getTripId(this@MainActivity)
+                            if (tripId == null) {
+                                Toast.makeText(this@MainActivity, "Ingen aktiv tur – trykk Start først.", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            val repo = FirebaseRepository()
+                            val sync = SyncRepository(dao, repo)
+                            sync.syncPending(tripId)
+                            Toast.makeText(this@MainActivity, "Synkret usendte punkt ✅", Toast.LENGTH_SHORT).show()
+                        }
+                    }) { Text("Sync to Firebase") }
+
                 }
             }
         }
