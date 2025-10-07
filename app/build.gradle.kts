@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.kapt") // For Room
+    id("com.google.gms.google-services") // Google services Gradle plugin
 }
 
 android {
@@ -43,6 +44,16 @@ android {
 
 dependencies {
 
+    // Firebase BoM først (midlertidig deaktivert for feilsøking)// implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
+
+    // Legg til versjoner manuelt for å omgå BoM-problemet
+    implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
+    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+    implementation("com.google.firebase:firebase-analytics:22.0.0")
+
+
+    // ... andre dependencies
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -69,4 +80,7 @@ dependencies {
 
 // lifecycleScope (for coroutines i MainActivity)
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+
+
+
 }

@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 // Oppretter databasen og gir Room oversikt over hvilke entiteter (tabeller) og DAO-er som finnes
+// Binder DAO og entities sammen
 @Database(entities = [TrackPoint::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackPointDao(): TrackPointDao
