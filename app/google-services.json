@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "959892273889",
+    "project_id": "bachelorapp-dd53e",
+    "storage_bucket": "bachelorapp-dd53e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:959892273889:android:db031a8d193f629c6ed5a0",
+        "android_client_info": {
+          "package_name": "no.oslomet.travelbehavior"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChcvs9xw0_ILwVFRwr9EVdDgqqim0fzRQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
