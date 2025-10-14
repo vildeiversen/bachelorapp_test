@@ -32,55 +32,58 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
 
     init {
-        // Sørg for at Firebase er logget inn når ViewModel-en opprettes
         ensureFirebaseLogin()
-
-        // Gjenopprett aktiv tur-ID ved oppstart
-        viewModelScope.launch {
-            val tripId = TripManager.getTripId(application)
-            if (tripId != null) {
-                _uiState.update { it.copy(activeTripId = tripId) }
-            }
-        }
+        // FIKS: Vi fjerner logikken som automatisk satte isTracking=true.
+        // Sporing skal kun starte når brukeren trykker på knappen.
+        // En eventuell gammel/forlatt tripId vil bli overskrevet neste gang brukeren starter en ny tur.
     }
 
     fun startTracking() {
         viewModelScope.launch {
-            // Opprett en ny tur i Firebase og lagre ID-en
             val newTripId = firebaseRepo.startTrip()
             TripManager.saveTripId(getApplication(), newTripId)
             Log.d("TRIP", "Started and saved new trip: $newTripId")
 
             _uiState.update { it.copy(isTracking = true, pathPoints = emptyList(), activeTripId = newTripId) }
 
-            // Start innsamling av lokasjonspoeng
             locClient.start { lat, lon, acc ->
                 val newPoint = LatLng(lat, lon)
-                _uiState.update { currentState ->
-                    currentState.copy(pathPoints = currentState.pathPoints + newPoint)
-                }
+                _uiState.update { it.copy(pathPoints = it.pathPoints + newPoint) }
 
                 viewModelScope.launch {
-                    dao.insert(TrackPoint(timestamp = System.currentTimeMillis(), lat = lat, lon = lon, acc = acc))
+                    // NY: Lagrer med tripId
+                    dao.insert(TrackPoint(tripId = newTripId, timestamp = System.currentTimeMillis(), lat = lat, lon = lon, acc = acc))
                 }
             }
         }
     }
 
-    fun stopTracking() {
+    // Stopper KUN sporingen lokalt
+    fun stopTracking(): String? {
         locClient.stop()
+        val tripId = _uiState.value.activeTripId
+        _uiState.update { it.copy(isTracking = false) }
+        return tripId
+    }
 
+    // NY: Lagrer turen til Firebase
+    fun saveTrip(tripId: String) {
         viewModelScope.launch {
-            val tripId = _uiState.value.activeTripId
-            if (tripId != null) {
-                Log.d("SYNC", "Stopping track and syncing trip: $tripId")
-                syncRepo.syncPending(tripId)
-                firebaseRepo.endTrip(tripId)
-                TripManager.clearTripId(getApplication())
-            } else {
-                Log.w("SYNC", "stopTracking called but no active tripId found.")
-            }
-            _uiState.update { it.copy(isTracking = false, activeTripId = null) }
+            Log.d("SYNC", "Saving trip to Firebase: $tripId")
+            syncRepo.syncPending(tripId)
+            firebaseRepo.endTrip(tripId)
+            TripManager.clearTripId(getApplication())
+            _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
+        }
+    }
+
+    // NY: Sletter turen fra Room
+    fun deleteTrip(tripId: String) {
+        viewModelScope.launch {
+            Log.d("SYNC", "Deleting local trip data for: $tripId")
+            dao.deleteByTripId(tripId)
+            TripManager.clearTripId(getApplication())
+            _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
         }
     }
 

@@ -8,12 +8,13 @@ class SyncRepository(
     private val remote: FirebaseRepository
 ) {
     /**
-     * Laster opp pending punkter (uploaded=false) i små batcher,
+     * Laster opp pending punkter (uploaded=false) for en gitt tripId i små batcher,
      * markerer som uploaded når opplasting lykkes.
      */
     suspend fun syncPending(tripId: String, batchSize: Int = 200) = withContext(Dispatchers.IO) {
         while (true) {
-            val batch = dao.getPending(batchSize)
+            // OPPDATERT: Henter kun punkter for den spesifikke turen
+            val batch = dao.getPendingForTrip(tripId, batchSize)
             if (batch.isEmpty()) break
 
             val uploadedIds = mutableListOf<Long>()

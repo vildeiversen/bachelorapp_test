@@ -17,14 +17,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import no.oslomet.travelbehavior.ui.navigation.Screen
 
 @Composable
 fun TrackingScreen(
     modifier: Modifier = Modifier,
+    navController: NavController, // VIKTIG: Tar imot NavController
     viewModel: TrackingViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,7 +47,7 @@ fun TrackingScreen(
         onResult = { granted ->
             if (granted) {
                 hasLocationPermission = true
-                viewModel.startTracking() // Start tracking via ViewModel after permission
+                viewModel.startTracking()
             }
         }
     )
@@ -55,7 +58,6 @@ fun TrackingScreen(
             position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 12f)
         }
 
-        // Animer kamera til brukerens posisjon
         LaunchedEffect(uiState.pathPoints) {
             uiState.pathPoints.lastOrNull()?.let { lastPoint ->
                 cameraPositionState.animate(
@@ -75,19 +77,24 @@ fun TrackingScreen(
                 if (uiState.pathPoints.size > 1) {
                     Polyline(
                         points = uiState.pathPoints,
-                        color = Color(0xFFE53935), // En rød-farge
+                        color = Color(0xFFE53935),
                         width = 12f
                     )
                 }
             }
 
             Button(
-                onClick = { viewModel.stopTracking() },
+                onClick = {
+                    // OPPDATERT: Stopper lokalt og navigerer til lagre-skjermen
+                    viewModel.stopTracking()?.let { tripId ->
+                        navController.navigate(Screen.SaveTrip.createRoute(tripId))
+                    }
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(24.dp)
             ) {
-                Text("Stop Tracking & Sync")
+                Text("Stop Tracking") // Oppdatert tekst
             }
         }
     } else {

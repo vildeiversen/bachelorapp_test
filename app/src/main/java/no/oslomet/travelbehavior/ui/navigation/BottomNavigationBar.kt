@@ -23,8 +23,18 @@ fun BottomNavigationBar(navController: NavController) {
 
         items.forEach { screen ->
             NavigationBarItem(
-                icon = { Icon(screen.icon, contentDescription = screen.label) },
-                label = { Text(screen.label) },
+                icon = {
+                    // Fiks: Legger til en null-sjekk. Viser kun ikonet hvis det eksisterer.
+                    screen.icon?.let { icon ->
+                        Icon(imageVector = icon, contentDescription = screen.label)
+                    }
+                },
+                label = {
+                    // Fiks: Legger til en null-sjekk for label også.
+                    screen.label?.let { label ->
+                        Text(text = label)
+                    }
+                },
                 selected = currentRoute == screen.route,
                 onClick = {
                     navController.navigate(screen.route) {
