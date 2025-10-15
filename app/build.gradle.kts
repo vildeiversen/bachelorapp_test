@@ -44,16 +44,19 @@ android {
 
 dependencies {
 
-    // Firebase BoM først (midlertidig deaktivert for feilsøking)// implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
-
-    // Legg til versjoner manuelt for å omgå BoM-problemet
+    // Firebase
     implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
-    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0") // Note: Du bruker Firestore, ikke Realtime Database
     implementation("com.google.firebase:firebase-analytics:22.0.0")
 
+    // NYE biblioteker for UI-struktur
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("androidx.compose.material:material-icons-extended")
 
-    // ... andre dependencies
-
+    // Eksisterende biblioteker
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -69,18 +72,14 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation("com.google.android.gms:play-services-location:21.3.0") // Google Play services location
-    implementation("com.google.code.gson:gson:2.11.0") // For å konvertere til JSON
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.code.gson:gson:2.11.0")
 
-
-    // For Room:
+    // Room
     implementation("androidx.room:room-runtime:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
 
-// lifecycleScope (for coroutines i MainActivity)
+    // lifecycleScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-
-
-
 }
