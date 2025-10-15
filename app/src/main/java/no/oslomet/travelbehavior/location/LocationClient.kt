@@ -3,6 +3,7 @@ package no.oslomet.travelbehavior.location
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Looper
+import android.util.Log
 import com.google.android.gms.location.*
 import com.google.android.gms.location.Granularity
 
@@ -26,6 +27,8 @@ class LocationClient(private val context: Context) {
         callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { loc ->
+                    // FIKS: Logger hvert punkt til Logcat
+                    Log.d("LocationClient", "New point: lat=${loc.latitude}, lon=${loc.longitude}, acc=${loc.accuracy}")
                     onPoint(loc.latitude, loc.longitude, loc.accuracy)
                 }
             }
