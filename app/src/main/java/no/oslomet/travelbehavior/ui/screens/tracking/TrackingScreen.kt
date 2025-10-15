@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -28,7 +27,7 @@ import no.oslomet.travelbehavior.ui.navigation.Screen
 fun TrackingScreen(
     modifier: Modifier = Modifier,
     navController: NavController, // VIKTIG: Tar imot NavController
-    viewModel: TrackingViewModel = viewModel()
+    viewModel: TrackingViewModel // FIKS: Mottar nå ViewModel, lager ikke sin egen
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
