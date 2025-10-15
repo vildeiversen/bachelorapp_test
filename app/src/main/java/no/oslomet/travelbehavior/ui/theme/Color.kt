@@ -12,5 +12,4 @@ val TextLight = Color(0xFFFFFFFF)
 val CardSecondaryBackground = Color(0xFFE9EFEA)
 
 val AccentBlue = Color(0xFF5A90C8)
-val AccentOrange = Color(0xFFF6B26B)
 val AccentRed = Color(0xFFE57373)
