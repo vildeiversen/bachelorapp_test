@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import no.oslomet.travelbehavior.ui.theme.CardSecondaryBackground
 
 @Composable
 fun BottomNavigationBar(navController: NavController) {
@@ -17,7 +18,7 @@ fun BottomNavigationBar(navController: NavController) {
         Screen.Settings
     )
 
-    NavigationBar {
+    NavigationBar(containerColor = CardSecondaryBackground) { // FIKS: Lagt til bakgrunnsfarge
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 

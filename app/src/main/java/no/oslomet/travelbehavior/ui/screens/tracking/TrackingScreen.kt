@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import no.oslomet.travelbehavior.ui.navigation.Screen
+import no.oslomet.travelbehavior.ui.theme.TextLight
 
 @Composable
 fun TrackingScreen(
@@ -84,16 +86,19 @@ fun TrackingScreen(
 
             Button(
                 onClick = {
-                    // OPPDATERT: Stopper lokalt og navigerer til lagre-skjermen
                     viewModel.stopTracking()?.let { tripId ->
                         navController.navigate(Screen.SaveTrip.createRoute(tripId))
                     }
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(24.dp)
+                    .padding(24.dp),
+                // FIKS: Lagt til hvit tekstfarge
+                colors = ButtonDefaults.buttonColors(
+                    contentColor = TextLight
+                )
             ) {
-                Text("Stop Tracking") // Oppdatert tekst
+                Text("Stop Tracking")
             }
         }
     } else {
@@ -102,13 +107,19 @@ fun TrackingScreen(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Button(onClick = {
-                if (hasLocationPermission) {
-                    viewModel.startTracking()
-                } else {
-                    locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                }
-            }) {
+            Button(
+                onClick = {
+                    if (hasLocationPermission) {
+                        viewModel.startTracking()
+                    } else {
+                        locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
+                // FIKS: Lagt til hvit tekstfarge
+                colors = ButtonDefaults.buttonColors(
+                    contentColor = TextLight
+                )
+            ) {
                 Text("Start Tracking Route")
             }
         }
