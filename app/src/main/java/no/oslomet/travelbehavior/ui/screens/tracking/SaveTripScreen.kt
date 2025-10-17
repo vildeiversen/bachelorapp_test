@@ -27,12 +27,9 @@ fun SaveTripScreen(
     tripId: String?,
     viewModel: TrackingViewModel
 ) {
-    // FIKS: Henter det kombinerte "Pair"-objektet
     val combinedState by viewModel.uiState.collectAsState()
-    // FIKS: Pakker ut den delen av tilstanden vi trenger i denne skjermen
     val vmState = combinedState.first
 
-    // FIKS: Bruker nå vmState for å få tilgang til isSaving og activeTripId
     LaunchedEffect(vmState.isSaving, vmState.activeTripId) {
         if (!vmState.isSaving && vmState.activeTripId == null) {
             navController.popBackStack()
@@ -51,7 +48,6 @@ fun SaveTripScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // FIKS: Bruker vmState.isSaving
         if (vmState.isSaving) {
             Text("Saving trip...")
             Spacer(modifier = Modifier.height(16.dp))
@@ -60,10 +56,9 @@ fun SaveTripScreen(
             Text("Do you want to save the recorded trip?")
             Spacer(modifier = Modifier.height(24.dp))
 
+            // FIKS: Fjernet overflødig 'enabled'-parameter
             Button(
                 onClick = { viewModel.saveTrip(tripId) },
-                // FIKS: Bruker vmState.isSaving
-                enabled = !vmState.isSaving,
                 colors = ButtonDefaults.buttonColors(
                     contentColor = TextLight
                 )
@@ -73,10 +68,9 @@ fun SaveTripScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // FIKS: Fjernet overflødig 'enabled'-parameter
             Button(
                 onClick = { viewModel.deleteTrip(tripId) },
-                // FIKS: Bruker vmState.isSaving
-                enabled = !vmState.isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AccentRed,
                     contentColor = TextLight
