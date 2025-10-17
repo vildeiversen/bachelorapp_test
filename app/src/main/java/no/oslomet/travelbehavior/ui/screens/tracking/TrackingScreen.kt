@@ -2,6 +2,7 @@ package no.oslomet.travelbehavior.ui.screens.tracking
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -28,43 +29,72 @@ import no.oslomet.travelbehavior.ui.theme.TextLight
 @Composable
 fun TrackingScreen(
     modifier: Modifier = Modifier,
-    navController: NavController, // VIKTIG: Tar imot NavController
-    viewModel: TrackingViewModel // FIKS: Mottar nå ViewModel, lager ikke sin egen
+    navController: NavController,
+    viewModel: TrackingViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // FIKS: Henter den kombinerte tilstanden fra ViewModel
+    val combinedState by viewModel.uiState.collectAsState()
+    // FIKS: Deler opp tilstanden i ViewModel-state og sanntidsdata fra tjenesten
+    val (vmState, trackingState) = combinedState
+    val (isTracking, pathPoints) = trackingState
+
     val context = LocalContext.current
 
+    // Tillatelse for lokasjon
     var hasLocationPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
     }
+
+    // FIKS: Ny tillatelse for notifikasjoner (Android 13+)
+    var hasNotificationPermission by remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mutableStateOf(
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            )
+        } else {
+            mutableStateOf(true) // Ikke nødvendig for eldre versjoner
+        }
+    }
+
+    val startAction = { viewModel.startTracking() }
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                hasNotificationPermission = true
+                startAction() // Begge tillatelser er nå gitt, start sporing
+            }
+        }
+    )
 
     val locationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
                 hasLocationPermission = true
-                viewModel.startTracking()
+                // Nå som vi har lokasjon, sjekk om vi trenger notifikasjonstillatelse
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    startAction() // Start direkte hvis ikke nødvendig
+                }
             }
         }
     )
 
-    if (uiState.isTracking && hasLocationPermission) {
-        // ##### KART-VISNING #####
+    // FIKS: Hovedbetingelsen bruker nå `isTracking` fra tjenesten
+    if (isTracking) {
         val cameraPositionState = rememberCameraPositionState {
             position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 12f)
         }
 
-        LaunchedEffect(uiState.pathPoints) {
-            uiState.pathPoints.lastOrNull()?.let { lastPoint ->
-                cameraPositionState.animate(
-                    update = CameraUpdateFactory.newLatLngZoom(lastPoint, 15f),
-                    durationMs = 1000
-                )
+        // FIKS: Bruker `pathPoints` fra tjenesten
+        LaunchedEffect(pathPoints) {
+            pathPoints.lastOrNull()?.let {
+                cameraPositionState.animate(update = CameraUpdateFactory.newLatLngZoom(it, 15f), durationMs = 1000)
             }
         }
 
@@ -75,12 +105,8 @@ fun TrackingScreen(
                 properties = MapProperties(isMyLocationEnabled = true),
                 uiSettings = MapUiSettings(myLocationButtonEnabled = false, zoomControlsEnabled = true)
             ) {
-                if (uiState.pathPoints.size > 1) {
-                    Polyline(
-                        points = uiState.pathPoints,
-                        color = Color(0xFFE53935),
-                        width = 12f
-                    )
+                if (pathPoints.size > 1) {
+                    Polyline(points = pathPoints, color = Color(0xFFE53935), width = 12f)
                 }
             }
 
@@ -90,35 +116,31 @@ fun TrackingScreen(
                         navController.navigate(Screen.SaveTrip.createRoute(tripId))
                     }
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(24.dp),
-                // FIKS: Lagt til hvit tekstfarge
-                colors = ButtonDefaults.buttonColors(
-                    contentColor = TextLight
-                )
+                modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
+                colors = ButtonDefaults.buttonColors(contentColor = TextLight)
             ) {
                 Text("Stop Tracking")
             }
         }
     } else {
-        // ##### START-KNAPP-VISNING #####
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Button(
                 onClick = {
+                    // FIKS: Oppdatert logikk for å håndtere begge tillatelsene
                     if (hasLocationPermission) {
-                        viewModel.startTracking()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            startAction()
+                        }
                     } else {
                         locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     }
                 },
-                // FIKS: Lagt til hvit tekstfarge
-                colors = ButtonDefaults.buttonColors(
-                    contentColor = TextLight
-                )
+                colors = ButtonDefaults.buttonColors(contentColor = TextLight)
             ) {
                 Text("Start Tracking Route")
             }

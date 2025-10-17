@@ -2,10 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Tillatelser for internett og lokasjon -->
     <uses-permission android:name="android.permission.INTERNET" />
-
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- FIKS: Nye tillatelser for forgrunnstjeneste -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- FIKS: Lagt til nødvendig tillatelse for lokasjon i forgrunnstjeneste -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:allowBackup="true"
@@ -17,10 +23,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BachelorAppH2025">
 
-        <!-- Legg inn din Google Maps API-nøkkel her -->
+        <!-- Google Maps API-nøkkel -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyCGRfWqGznlQfLPsVWEE3DGddlwTTPR7Ss" />
+
+        <!-- Deklarasjon av den nye LocationService -->
+        <service
+            android:name=".location.LocationService"
+            android:foregroundServiceType="location" />
 
         <activity
             android:name=".MainActivity"
@@ -29,12 +40,9 @@
             android:theme="@style/Theme.BachelorAppH2025">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
     </application>
 
 </manifest>
-
-<!-- Tester commit-->

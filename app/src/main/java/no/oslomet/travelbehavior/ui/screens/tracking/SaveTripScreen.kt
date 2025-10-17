@@ -25,12 +25,16 @@ import no.oslomet.travelbehavior.ui.theme.TextLight
 fun SaveTripScreen(
     navController: NavController,
     tripId: String?,
-    viewModel: TrackingViewModel // FIKS: Mottar nå ViewModel, lager ikke sin egen
+    viewModel: TrackingViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // FIKS: Henter det kombinerte "Pair"-objektet
+    val combinedState by viewModel.uiState.collectAsState()
+    // FIKS: Pakker ut den delen av tilstanden vi trenger i denne skjermen
+    val vmState = combinedState.first
 
-    LaunchedEffect(uiState.isSaving, uiState.activeTripId) {
-        if (!uiState.isSaving && uiState.activeTripId == null) {
+    // FIKS: Bruker nå vmState for å få tilgang til isSaving og activeTripId
+    LaunchedEffect(vmState.isSaving, vmState.activeTripId) {
+        if (!vmState.isSaving && vmState.activeTripId == null) {
             navController.popBackStack()
         }
     }
@@ -47,7 +51,8 @@ fun SaveTripScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (uiState.isSaving) {
+        // FIKS: Bruker vmState.isSaving
+        if (vmState.isSaving) {
             Text("Saving trip...")
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
@@ -57,8 +62,8 @@ fun SaveTripScreen(
 
             Button(
                 onClick = { viewModel.saveTrip(tripId) },
-                enabled = !uiState.isSaving,
-                // FIKS: Lagt til hvit tekstfarge
+                // FIKS: Bruker vmState.isSaving
+                enabled = !vmState.isSaving,
                 colors = ButtonDefaults.buttonColors(
                     contentColor = TextLight
                 )
@@ -70,8 +75,8 @@ fun SaveTripScreen(
 
             Button(
                 onClick = { viewModel.deleteTrip(tripId) },
-                enabled = !uiState.isSaving,
-                // FIKS: Lagt til hvit tekstfarge
+                // FIKS: Bruker vmState.isSaving
+                enabled = !vmState.isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AccentRed,
                     contentColor = TextLight
