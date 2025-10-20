@@ -29,6 +29,15 @@ import no.oslomet.travelbehavior.ui.screens.tracking.SaveTripScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingViewModel
 import no.oslomet.travelbehavior.ui.theme.BachelorAppH2025Theme
+import android.app.Application
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.compose.currentBackStackEntryAsState
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +57,16 @@ class MainActivity : ComponentActivity() {
 fun AppShell() {
     val navController = rememberNavController()
 
+    // Build the Consent VM using Application context
+    val app = (LocalContext.current.applicationContext as Application)
+    val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
+    val consentUi = consentVm.ui.collectAsState().value
+
+    // Hide bottom bar on the consent route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != Screen.Consent.route
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -55,16 +74,34 @@ fun AppShell() {
             )
         },
         bottomBar = {
-            BottomNavigationBar(navController = navController)
+            if (showBottomBar) {
+                BottomNavigationBar(navController = navController)
+            }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = Screen.Consent.route,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(Screen.Consent.route) {
+                ConsentScreen(
+                    agreeChecked = consentUi.agreeChecked,
+                    onAgreeChange = consentVm::setAgree,
+                    onAccept = {
+                        consentVm.accept {
+                            navController.navigate(Screen.Home.route) { popUpTo(0) }
+                        }
+                    },
+                    onDecline = { /* Show a message??? */ }
+                )
+            }
+
             composable(Screen.Home.route) { HomeScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(route = Screen.Settings.route) {
+                SettingsScreen(navController = navController)
+            }
+
 
             // FIKS: Nestet navigasjonsgraf for hele sporingsflyten
             navigation(
