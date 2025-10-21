@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -54,12 +55,15 @@ class LocationService : Service() {
         _pathPoints.value = emptyList()
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            "location",
-            "Location Tracking",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        notificationManager.createNotificationChannel(channel)
+        // FIKS: Kjører kun på API 26+ for å unngå krasj på eldre enheter
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "location",
+                "Location Tracking",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
 
         val notification = NotificationCompat.Builder(this, "location")
             .setContentTitle("Travel Behavior")
@@ -97,7 +101,6 @@ class LocationService : Service() {
          const val ACTION_START = "ACTION_START"
          const val ACTION_STOP = "ACTION_STOP"
 
-        // FIKS: Oppgradert til StateFlow for bedre og tryggere tilstandshåndtering
         private val _isTracking = MutableStateFlow(false)
         val isTracking = _isTracking.asStateFlow()
 
