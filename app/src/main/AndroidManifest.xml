@@ -7,6 +7,15 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
+    <!-- HVA: Legger til nødvendige tillatelser for pålitelig bakgrunnssporing. -->
+    <!-- HVORFOR: Moderne Android-versjoner krever disse eksplisitte tillatelsene -->
+    <!-- for å kjøre en tjeneste som viser varslinger (POST_NOTIFICATIONS) og -->
+    <!-- sporer lokasjon i bakgrunnen (FOREGROUND_SERVICE_LOCATION). Uten disse -->
+    <!-- krasjer appen umiddelbart på nyere telefoner. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -33,6 +42,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- HVA: Registrerer den nye TrackingService. -->
+        <!-- HVORFOR: Uten denne registreringen vet ikke Android-systemet at servicen -->
+        <!-- eksisterer, og appen vil krasje når man prøver å starte den. -->
+        <service
+            android:name=".location.TrackingService"
+            android:foregroundServiceType="location" />
+
     </application>
 
 </manifest>

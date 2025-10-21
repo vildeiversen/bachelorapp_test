@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    // FIKS: Endret tilbake til riktig Material 3-avhengighet
     implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -82,7 +83,12 @@ dependencies {
 
     // lifecycleScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-service:2.9.4")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.10.5")
+
+    // HVA: Lagt til verktøy for å enkelt håndtere tillatelser i Compose.
+    // HVORFOR: Nødvendig for å vise "Spør om tillatelse"-dialogen på en ryddig måte.
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 }

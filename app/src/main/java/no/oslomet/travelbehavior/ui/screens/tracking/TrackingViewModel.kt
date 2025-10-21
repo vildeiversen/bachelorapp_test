@@ -1,6 +1,7 @@
 package no.oslomet.travelbehavior.ui.screens.tracking
 
 import android.app.Application
+import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
@@ -14,25 +15,24 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import no.oslomet.travelbehavior.data.*
-import no.oslomet.travelbehavior.location.LocationClient
+import no.oslomet.travelbehavior.location.TrackingService
 import no.oslomet.travelbehavior.worker.TripSyncWorker
 import java.util.UUID
 
-// UI State for the Tracking Screen
 data class TrackingUiState(
     val isTracking: Boolean = false,
     val pathPoints: List<LatLng> = emptyList(),
-    val activeTripId: String? = null, // Dette vil nå være en LOKAL UUID
+    val activeTripId: String? = null,
     val isSaving: Boolean = false
 )
 
 class TrackingViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val locClient: LocationClient = LocationClient(getApplication())
-    private val trackPointDao: TrackPointDao = AppDatabase.getInstance(getApplication()).trackPointDao()
     private val tripDao: TripDao = AppDatabase.getInstance(getApplication()).tripDao()
     private val workManager = WorkManager.getInstance(application)
 
@@ -41,31 +41,50 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
     init {
         ensureFirebaseLogin()
+        restoreTripIdIfActive() // FIKS: Gjenoppretter tur-ID ved oppstart
+
+        TrackingService.pathPoints.onEach {
+            _uiState.update { state -> state.copy(pathPoints = it) }
+        }.launchIn(viewModelScope)
+
+        TrackingService.isTracking.onEach {
+            _uiState.update { state -> state.copy(isTracking = it) }
+        }.launchIn(viewModelScope)
+    }
+
+    // HVA: En ny funksjon som sjekker om det finnes en pågående tur.
+    // HVORFOR: Dette er avgjørende for å gjenopprette tilstanden hvis appen har
+    // blitt lukket og åpnet igjen midt i en tur.
+    private fun restoreTripIdIfActive() {
+        val activeTripId = TripManager.getTripId(getApplication())
+        if (activeTripId != null) {
+            _uiState.update { it.copy(activeTripId = activeTripId) }
+            Log.d("TrackingViewModel", "Restored active trip ID: $activeTripId")
+        }
     }
 
     fun startTracking() {
         val localTripId = UUID.randomUUID().toString()
         Log.d("TrackingViewModel", "Starting new LOCAL-ONLY trip with ID: $localTripId")
         TripManager.saveTripId(getApplication(), localTripId)
+        _uiState.update { it.copy(activeTripId = localTripId) }
 
-        _uiState.update { it.copy(isTracking = true, pathPoints = emptyList(), activeTripId = localTripId) }
-
-        locClient.start { lat, lon, acc ->
-            val newPoint = LatLng(lat, lon)
-            _uiState.update { it.copy(pathPoints = it.pathPoints + newPoint) }
-
-            viewModelScope.launch {
-                trackPointDao.insert(TrackPoint(tripId = localTripId, timestamp = System.currentTimeMillis(), lat = lat, lon = lon, acc = acc))
-            }
-        }
+        sendCommandToService(TrackingService.ACTION_START_SERVICE)
     }
 
     fun stopTracking(): String? {
-        locClient.stop()
-        val tripId = _uiState.value.activeTripId
-        Log.d("TrackingViewModel", "Local tracking stopped for trip ID: $tripId. Awaiting user action.")
-        _uiState.update { it.copy(isTracking = false) }
+        // FIKS: Henter ID-en FØR servicen stoppes
+        val tripId = TripManager.getTripId(getApplication())
+        sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
+        // TripManager.clearTripId() skjer nå kun etter vellykket lagring.
         return tripId
+    }
+
+    private fun sendCommandToService(action: String) {
+        Intent(getApplication(), TrackingService::class.java).also {
+            it.action = action
+            getApplication<Application>().startService(it)
+        }
     }
 
     fun saveTripAndRatings(localTripId: String, tripRating: Int, delayRating: Int, delayMinutes: Int?, delayComment: String?) {
@@ -83,19 +102,16 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
                 )
                 tripDao.insert(trip)
                 Log.d("TrackingViewModel", "Saved trip locally with ratings. Trip ID: $localTripId")
-
-                // HVA: Viser en bekreftelsesmelding til brukeren.
-                // HVORFOR: Gir umiddelbar, positiv feedback på at handlingen var vellykket.
                 Toast.makeText(getApplication(), "Turen er lagret!", Toast.LENGTH_SHORT).show()
 
                 scheduleTripSync()
 
+                // Først NÅ er det trygt å fjerne ID-en
                 TripManager.clearTripId(getApplication())
                 _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
 
             } catch (e: Exception) {
                 Log.e("TrackingViewModel", "Failed to save trip locally. Error: ${e.message}", e)
-                // Viser en feilmelding hvis noe går galt
                 Toast.makeText(getApplication(), "Feil: Kunne ikke lagre turen", Toast.LENGTH_LONG).show()
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
@@ -107,11 +123,9 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-
         val syncRequest = OneTimeWorkRequestBuilder<TripSyncWorker>()
             .setConstraints(constraints)
             .build()
-
         workManager.enqueue(syncRequest)
         Log.d("TrackingViewModel", "Trip sync worker has been enqueued.")
     }
@@ -119,8 +133,8 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     fun deleteTrip(localTripId: String) {
         viewModelScope.launch {
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
-            trackPointDao.deleteByTripId(localTripId)
             tripDao.deleteById(localTripId)
+            // Også trygt å fjerne ID-en her
             TripManager.clearTripId(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
             Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
@@ -132,10 +146,5 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         if (auth.currentUser == null) {
             auth.signInAnonymously()
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        locClient.stop()
     }
 }
