@@ -60,12 +60,18 @@ fun AppShell() {
     // Build the Consent VM using Application context
     val app = (LocalContext.current.applicationContext as Application)
     val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
-    val consentUi = consentVm.ui.collectAsState().value
+    val ui = consentVm.ui.collectAsState().value
+
+    val start = when {
+        ui.isLoading       -> Screen.Splash.route
+        ui.consentRequired -> Screen.Consent.route
+        else               -> Screen.Home.route
+    }
 
     // Hide bottom bar on the consent route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != Screen.Consent.route
+    val showBottomBar = currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route
 
     Scaffold(
         topBar = {
@@ -81,12 +87,18 @@ fun AppShell() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Consent.route,
+            startDestination = start,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // tiny splash so you don't flash the consent screen
+            composable(Screen.Splash.route) {
+                // a simple blank Box is fine
+                androidx.compose.foundation.layout.Box(Modifier)
+            }
+
             composable(Screen.Consent.route) {
                 ConsentScreen(
-                    agreeChecked = consentUi.agreeChecked,
+                    agreeChecked = ui.agreeChecked,
                     onAgreeChange = consentVm::setAgree,
                     onAccept = {
                         consentVm.accept {
