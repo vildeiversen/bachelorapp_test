@@ -82,4 +82,7 @@ dependencies {
 
     // lifecycleScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
 }

@@ -4,20 +4,19 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 
-// Denne definerer "Data Access Object", altså hvordan vi leser/lagrer/oppdaterer data (for Room)
 @Dao
 interface TrackPointDao {
     @Insert
     suspend fun insert(trackPoint: TrackPoint)
 
-    // Oppdatert for å hente punkter for en SPESIFIKK tur
-    @Query("SELECT * FROM track_points WHERE tripId = :tripId AND uploaded = 0 ORDER BY timestamp ASC LIMIT :limit")
-    suspend fun getPendingForTrip(tripId: String, limit: Int = 500): List<TrackPoint>
+    // HVA: En ny funksjon for å hente ALLE punkter for en gitt tur.
+    // HVORFOR: TripSyncWorker trenger dette for å laste opp alle punktene for en tur som skal synkroniseres.
+    @Query("SELECT * FROM track_points WHERE tripId = :tripId ORDER BY timestamp ASC")
+    suspend fun getTrackPointsForTrip(tripId: String): List<TrackPoint>
 
     @Query("UPDATE track_points SET uploaded = 1 WHERE id IN (:ids)")
     suspend fun markUploaded(ids: List<Long>)
 
-    // NY: Sletter alle punkter knyttet til en spesifikk tur
     @Query("DELETE FROM track_points WHERE tripId = :tripId")
     suspend fun deleteByTripId(tripId: String)
 }

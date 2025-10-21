@@ -5,11 +5,16 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-// Oppretter databasen og gir Room oversikt over hvilke entiteter (tabeller) og DAO-er som finnes
-// Binder DAO og entities sammen
-@Database(entities = [TrackPoint::class], version = 1)
+// HVA: Lagt til Trip::class i listen over entiteter.
+// HVORFOR: Room må vite om alle tabellene databasen skal inneholde.
+@Database(entities = [TrackPoint::class, Trip::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackPointDao(): TrackPointDao
+
+    // HVA: Lagt til den abstrakte funksjonen for TripDao.
+    // HVORFOR: Dette gjør DAO-en tilgjengelig for resten av appen via en database-instans,
+    // og løser feilen i TrackingViewModel.
+    abstract fun tripDao(): TripDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
