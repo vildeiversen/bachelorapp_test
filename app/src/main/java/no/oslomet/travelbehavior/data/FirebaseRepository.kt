@@ -54,7 +54,6 @@ class FirebaseRepository(
         Log.d("FirebaseRepo", "Ended and rated trip in Firebase with ID: $tripId")
     }
 
-    // HVA: En ny, optimalisert funksjon for å laste opp punkter i "batcher".
     // HVORFOR: Å sende mange punkter i ett kall er mye raskere og mer effektivt
     // enn å sende ett og ett. Dette reduserer nettverkstrafikk og batteribruk.
     suspend fun addTrackPointsBatch(tripId: String, points: List<TrackPointDto>) {
@@ -73,7 +72,6 @@ class FirebaseRepository(
         }
     }
 }
-
 
 data class TripDTO(
     val startedAt: Timestamp = Timestamp.now(),

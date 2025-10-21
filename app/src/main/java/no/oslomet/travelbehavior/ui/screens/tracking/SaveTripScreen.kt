@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,9 +42,14 @@ fun SaveTripScreen(
         return
     }
 
+    // HVA: Gjør kolonnen rullbar.
+    // HVORFOR: Sikrer at alt innhold, inkludert slette-knappen, er synlig
+    // selv på små skjermer eller når tastaturet er oppe.
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -52,8 +59,6 @@ fun SaveTripScreen(
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
         } else {
-            // HVA: Oppdatert lambdaen til å motta alle fire verdiene.
-            // HVORFOR: Dette kobler det nye UI-feltet til ViewModel-funksjonen.
             TripFeedbackSheet {
                 tripRating, delayRating, delayMinutes, delayComment ->
                 viewModel.saveTripAndRatings(tripId, tripRating, delayRating, delayMinutes, delayComment)

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -26,7 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import no.oslomet.travelbehavior.ui.theme.TextLight
@@ -37,10 +40,12 @@ fun TripFeedbackSheet(
 ) {
     var tripRating by remember { mutableStateOf(0) }
     var delayRating by remember { mutableStateOf(0) }
-    // HVA: State for å holde på forsinkelse i minutter.
-    // HVORFOR: Vi trenger en egen state-variabel for tekstfeltet.
     var delayMinutes by remember { mutableStateOf("") }
     var delayComment by remember { mutableStateOf("") }
+
+    // HVA: Henter FocusManager.
+    // HVORFOR: Gir oss kontroll til å fjerne fokus og lukke tastaturet.
+    val focusManager = LocalFocusManager.current
 
     Column(
         modifier = Modifier
@@ -61,13 +66,16 @@ fun TripFeedbackSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // HVA: Nytt tekstfelt for forsinkelse i minutter.
-        // HVORFOR: Samler inn numerisk data fra brukeren. Bruker KeyboardType.Number for bedre UX.
         OutlinedTextField(
             value = delayMinutes,
-            onValueChange = { delayMinutes = it.filter { c -> c.isDigit() } }, // Tillater kun siffer
+            onValueChange = { delayMinutes = it.filter { c -> c.isDigit() } },
             label = { Text("How many minutes was the delay?") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            // HVA: Legger til "Neste"-knapp på tastaturet.
+            // HVORFOR: Forbedrer flyten slik at brukeren enkelt kan hoppe til neste felt.
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next
+            ),
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -79,18 +87,24 @@ fun TripFeedbackSheet(
             onValueChange = { delayComment = it },
             label = { Text("Optional: Describe the delay") },
             modifier = Modifier.fillMaxWidth(),
-            maxLines = 3
+            maxLines = 3,
+            // HVA: Legger til "Ferdig"-knapp og en handling for den.
+            // HVORFOR: Gir brukeren en klar måte å lukke tastaturet på når de er ferdige.
+            keyboardOptions = KeyboardOptions.Default.copy(
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { focusManager.clearFocus() }
+            )
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-                // Konverterer tekst til Int?, sender null hvis feltet er tomt.
                 val minutes = delayMinutes.toIntOrNull()
                 onSave(tripRating, delayRating, minutes, delayComment)
             },
-            // Knappen er aktiv hvis brukeren har ratet både turen og forsinkelsen.
             enabled = tripRating > 0 && delayRating > 0,
             colors = ButtonDefaults.buttonColors(
                 contentColor = TextLight
