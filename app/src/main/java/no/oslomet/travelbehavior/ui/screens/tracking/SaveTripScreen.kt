@@ -25,7 +25,7 @@ import no.oslomet.travelbehavior.ui.theme.TextLight
 fun SaveTripScreen(
     navController: NavController,
     tripId: String?,
-    viewModel: TrackingViewModel // FIKS: Mottar nå ViewModel, lager ikke sin egen
+    viewModel: TrackingViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -52,26 +52,18 @@ fun SaveTripScreen(
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
         } else {
-            Text("Do you want to save the recorded trip?")
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = { viewModel.saveTrip(tripId) },
-                enabled = !uiState.isSaving,
-                // FIKS: Lagt til hvit tekstfarge
-                colors = ButtonDefaults.buttonColors(
-                    contentColor = TextLight
-                )
-            ) {
-                Text("Save Trip")
+            // HVA: Oppdatert lambdaen til å motta alle fire verdiene.
+            // HVORFOR: Dette kobler det nye UI-feltet til ViewModel-funksjonen.
+            TripFeedbackSheet {
+                tripRating, delayRating, delayMinutes, delayComment ->
+                viewModel.saveTripAndRatings(tripId, tripRating, delayRating, delayMinutes, delayComment)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = { viewModel.deleteTrip(tripId) },
                 enabled = !uiState.isSaving,
-                // FIKS: Lagt til hvit tekstfarge
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AccentRed,
                     contentColor = TextLight
