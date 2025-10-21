@@ -2,6 +2,7 @@ package no.oslomet.travelbehavior.ui.screens.tracking
 
 import android.app.Application
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
@@ -67,8 +68,6 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         return tripId
     }
 
-    // HVA: Oppdatert funksjonen til å motta delayMinutes.
-    // HVORFOR: For å kunne ta imot den nye verdien fra UI-et.
     fun saveTripAndRatings(localTripId: String, tripRating: Int, delayRating: Int, delayMinutes: Int?, delayComment: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
@@ -78,14 +77,16 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
                     endTimestamp = System.currentTimeMillis(),
                     overallRating = tripRating,
                     delayRating = delayRating,
-                    // HVA: Lagrer den nye verdien i Trip-objektet.
-                    // HVORFOR: Sørger for at minutt-forsinkelsen blir lagret lokalt.
                     delayMinutes = delayMinutes,
                     delayComment = delayComment,
                     isSynced = false
                 )
                 tripDao.insert(trip)
                 Log.d("TrackingViewModel", "Saved trip locally with ratings. Trip ID: $localTripId")
+
+                // HVA: Viser en bekreftelsesmelding til brukeren.
+                // HVORFOR: Gir umiddelbar, positiv feedback på at handlingen var vellykket.
+                Toast.makeText(getApplication(), "Turen er lagret!", Toast.LENGTH_SHORT).show()
 
                 scheduleTripSync()
 
@@ -94,6 +95,8 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
             } catch (e: Exception) {
                 Log.e("TrackingViewModel", "Failed to save trip locally. Error: ${e.message}", e)
+                // Viser en feilmelding hvis noe går galt
+                Toast.makeText(getApplication(), "Feil: Kunne ikke lagre turen", Toast.LENGTH_LONG).show()
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -120,6 +123,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
             tripDao.deleteById(localTripId)
             TripManager.clearTripId(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
+            Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
         }
     }
 

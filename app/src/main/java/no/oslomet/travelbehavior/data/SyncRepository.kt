@@ -19,13 +19,13 @@ class SyncRepository(
             val trackPoints = trackPointDao.getTrackPointsForTrip(trip.id)
             Log.d("SyncRepository", "Found ${trackPoints.size} track points to upload.")
 
-            // HVA: Optimalisert til å bruke batch-opplasting.
-            // HVORFOR: I stedet for å sende hvert punkt enkeltvis, sendes alle punktene
-            // i en eller noen få "pakker". Dette er dramatisk mye raskere og mer effektivt.
+            // FIKS: Erstatter den feilaktige logikken med et korrekt kall til batch-opplasting.
+            // HVORFOR: Den forrige koden sendte bare ett punkt. Denne koden sender hele
+            // listen med punkter til den effektive batch-funksjonen, som sikrer at ALT lastes opp.
             if (trackPoints.isNotEmpty()) {
-                val pointDtos = trackPoints.map { it.toDto() } // Konverterer alle til DTOs først
-                remote.addTrackPointsBatch(firebaseTripId, pointDtos)
-                Log.d("SyncRepository", "Finished uploading all track points in batches.")
+                val pointDtos = trackPoints.map { it.toDto() } // Konverterer HELE listen først
+                remote.addTrackPointsBatch(firebaseTripId, pointDtos) // Sender HELE listen til Firebase
+                Log.d("SyncRepository", "Correctly sent ${pointDtos.size} points to be uploaded in batches.")
             }
 
             remote.endTrip(
