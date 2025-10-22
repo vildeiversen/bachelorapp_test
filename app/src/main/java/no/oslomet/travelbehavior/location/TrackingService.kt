@@ -22,6 +22,8 @@ import no.oslomet.travelbehavior.data.AppDatabase
 import no.oslomet.travelbehavior.data.TrackPoint
 import no.oslomet.travelbehavior.data.TrackPointDao
 import no.oslomet.travelbehavior.data.TripManager
+import java.util.Calendar
+import java.util.Date
 
 class TrackingService : LifecycleService() {
 
@@ -54,11 +56,13 @@ class TrackingService : LifecycleService() {
         intent?.let {
             when (it.action) {
                 ACTION_START_SERVICE -> {
+                    TripManager.saveTripStartTime(this)
                     startForegroundService()
                     _isTracking.value = true
                     _pathPoints.value = emptyList()
                 }
                 ACTION_STOP_SERVICE -> {
+                    TripManager.clearTripStartTime(this)
                     stopService()
                 }
             }
@@ -92,23 +96,36 @@ class TrackingService : LifecycleService() {
             super.onLocationResult(result)
             if (_isTracking.value) {
                 result.lastLocation?.let { location ->
+                    // Denne oppdaterer UI (kartet) og må forbli på hovedtråden.
                     val latLng = LatLng(location.latitude, location.longitude)
                     _pathPoints.value += latLng
 
-                    // FIKS: Bruker `this@TrackingService` for å få riktig kontekst.
-                    val tripId = TripManager.getTripId(this@TrackingService)
-                    if (tripId != null) {
-                         serviceScope.launch {
-                            trackPointDao.insert(
-                                TrackPoint(
-                                    tripId = tripId,
-                                    timestamp = System.currentTimeMillis(),
-                                    lat = location.latitude,
-                                    lon = location.longitude,
-                                    acc = location.accuracy
-                                )
+                    // FIKS: All disk-I/O og databehandling er nå flyttet til en bakgrunnstråd.
+                    serviceScope.launch {
+                        val tripId = TripManager.getTripId(this@TrackingService)
+                        if (tripId == null) return@launch
+
+                        val tripStartTimeMillis = TripManager.getTripStartTime(this@TrackingService)
+                        if (tripStartTimeMillis == 0L) return@launch
+
+                        val startCal = Calendar.getInstance().apply { timeInMillis = tripStartTimeMillis }
+                        val startTimeOfDay = startCal.get(Calendar.HOUR_OF_DAY) * 3600_000L +
+                                         startCal.get(Calendar.MINUTE) * 60_000L +
+                                         startCal.get(Calendar.SECOND) * 1_000L
+
+                        val duration = System.currentTimeMillis() - tripStartTimeMillis
+
+                        val anonymizedTimestamp = startTimeOfDay + duration
+
+                        trackPointDao.insert(
+                            TrackPoint(
+                                tripId = tripId,
+                                timestamp = Date(anonymizedTimestamp),
+                                lat = location.latitude,
+                                lon = location.longitude,
+                                acc = location.accuracy
                             )
-                        }
+                        )
                     }
                 }
             }
