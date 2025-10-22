@@ -1,6 +1,7 @@
 package no.oslomet.travelbehavior.data
 
 import com.google.firebase.Timestamp
+import java.util.Date
 
 // dette er vår Firestore-modell (hvordan dokumentene lagres i skyen).
 /**
@@ -17,8 +18,10 @@ data class TrackPointDto(
 
 // Mapper fra vår lokale Room-entity til Firestore-modellen
 fun TrackPoint.toDto(): TrackPointDto {
+    // FIKS: Bruker .time for å hente ut millisekund-tallet fra Date-objektet før vi regner på det.
+    val timeInMillis = this.timestamp.time
     return TrackPointDto(
-        timestamp = Timestamp(timestamp / 1000, ((timestamp % 1000) * 1_000_000).toInt()),
+        timestamp = Timestamp(timeInMillis / 1000, ((timeInMillis % 1000) * 1_000_000).toInt()),
         lat = lat,
         lon = lon,
         acc = acc

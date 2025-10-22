@@ -4,16 +4,12 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
-// HVA: Lagt til Trip::class i listen over entiteter.
-// HVORFOR: Room må vite om alle tabellene databasen skal inneholde.
-@Database(entities = [TrackPoint::class, Trip::class], version = 1)
+@Database(entities = [TrackPoint::class, Trip::class], version = 2) // FIKS: Økt versjon
+@TypeConverters(Converters::class) // FIKS: Forteller Room om vår nye oversetter
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackPointDao(): TrackPointDao
-
-    // HVA: Lagt til den abstrakte funksjonen for TripDao.
-    // HVORFOR: Dette gjør DAO-en tilgjengelig for resten av appen via en database-instans,
-    // og løser feilen i TrackingViewModel.
     abstract fun tripDao(): TripDao
 
     companion object {
@@ -25,7 +21,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "travel_behavior.db"
-                ).build().also { INSTANCE = it }
+                )
+                .fallbackToDestructiveMigration() // FIKS: Hindrer krasj ved versjonsendring
+                .build().also { INSTANCE = it }
             }
     }
 }
