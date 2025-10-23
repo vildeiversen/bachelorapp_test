@@ -18,6 +18,8 @@ sealed class Screen(val route: String, val label: String? = null, val icon: Imag
     // Splash (ingen label/ikon – brukes kun som start mens DataStore lastes)
     object Splash : Screen("splash")
 
+    object ConsentReview : Screen("consent_review", "View Consent", null)
+
     // Rute for lagring av tur, ingen label eller ikon nødvendig
     object SaveTrip : Screen("save_trip/{tripId}") {
         fun createRoute(tripId: String) = "save_trip/$tripId"

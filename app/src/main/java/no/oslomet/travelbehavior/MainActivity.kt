@@ -38,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -109,11 +110,14 @@ fun AppShell() {
                 )
             }
 
+            composable(Screen.ConsentReview.route) { // NEW
+                ConsentReviewScreen(navController = navController) // NEW
+            } // NEW
+
             composable(Screen.Home.route) { HomeScreen() }
             composable(route = Screen.Settings.route) {
                 SettingsScreen(navController = navController)
             }
-
 
             // FIKS: Nestet navigasjonsgraf for hele sporingsflyten
             navigation(

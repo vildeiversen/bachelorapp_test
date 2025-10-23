@@ -82,4 +82,23 @@ dependencies {
 
     // lifecycleScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-service:2.8.3")
+
+    // Other dependencies...
+
+    // Preferences DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Optional - If you are using Kotlin Coroutines Flow
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    // For build.gradle.kts (Kotlin DSL)
+    implementation("com.google.accompanist:accompanist-permissions:0.31.5-beta")
+
+    // Kotlin + Coroutines
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
 }
