@@ -64,7 +64,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    // FIKS: Endret tilbake til riktig Material 3-avhengighet
     implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -83,12 +82,31 @@ dependencies {
 
     // lifecycleScope
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-service:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
+    implementation("androidx.lifecycle:lifecycle-service:2.8.3")
 
-    // WorkManager
-    implementation("androidx.work:work-runtime-ktx:2.10.5")
+    // Other dependencies...
 
-    // HVA: Lagt til verktøy for å enkelt håndtere tillatelser i Compose.
-    // HVORFOR: Nødvendig for å vise "Spør om tillatelse"-dialogen på en ryddig måte.
-    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+    // Preferences DataStore
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Optional - If you are using Kotlin Coroutines Flow
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    // For build.gradle.kts (Kotlin DSL)
+    implementation("com.google.accompanist:accompanist-permissions:0.31.5-beta")
+
+    // Kotlin + Coroutines
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+
+    //Datastore
+    //WIP. Remove excessive implementations.
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation("androidx.navigation:navigation-compose:2.8.3")
+    implementation("androidx.compose.material3:material3:1.3.0")
+
 }

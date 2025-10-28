@@ -29,6 +29,16 @@ import no.oslomet.travelbehavior.ui.screens.tracking.SaveTripScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingViewModel
 import no.oslomet.travelbehavior.ui.theme.BachelorAppH2025Theme
+import android.app.Application
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.compose.currentBackStackEntryAsState
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
+import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +58,22 @@ class MainActivity : ComponentActivity() {
 fun AppShell() {
     val navController = rememberNavController()
 
+    // Build the Consent VM using Application context
+    val app = (LocalContext.current.applicationContext as Application)
+    val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
+    val ui = consentVm.ui.collectAsState().value
+
+    val start = when {
+        ui.isLoading       -> Screen.Splash.route
+        ui.consentRequired -> Screen.Consent.route
+        else               -> Screen.Home.route
+    }
+
+    // Hide bottom bar on the consent route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -55,16 +81,43 @@ fun AppShell() {
             )
         },
         bottomBar = {
-            BottomNavigationBar(navController = navController)
+            if (showBottomBar) {
+                BottomNavigationBar(navController = navController)
+            }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = start,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // tiny splash so you don't flash the consent screen
+            composable(Screen.Splash.route) {
+                // a simple blank Box is fine
+                androidx.compose.foundation.layout.Box(Modifier)
+            }
+
+            composable(Screen.Consent.route) {
+                ConsentScreen(
+                    agreeChecked = ui.agreeChecked,
+                    onAgreeChange = consentVm::setAgree,
+                    onAccept = {
+                        consentVm.accept {
+                            navController.navigate(Screen.Home.route) { popUpTo(0) }
+                        }
+                    },
+                    onDecline = { /* Show a message??? */ }
+                )
+            }
+
+            composable(Screen.ConsentReview.route) { // NEW
+                ConsentReviewScreen(navController = navController) // NEW
+            } // NEW
+
             composable(Screen.Home.route) { HomeScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(route = Screen.Settings.route) {
+                SettingsScreen(navController = navController)
+            }
 
             // FIKS: Nestet navigasjonsgraf for hele sporingsflyten
             navigation(

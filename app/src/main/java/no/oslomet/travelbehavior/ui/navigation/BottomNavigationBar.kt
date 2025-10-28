@@ -18,10 +18,14 @@ fun BottomNavigationBar(navController: NavController) {
         Screen.Settings
     )
 
-    NavigationBar(containerColor = CardSecondaryBackground) { // FIKS: Lagt til bakgrunnsfarge
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry?.destination?.route
+    //Lines moved to get the current route first
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
+    //Hides the bottom bar on the consent screen
+    if (currentRoute == Screen.Consent.route) return
+
+    NavigationBar(containerColor = CardSecondaryBackground) { // FIKS: Lagt til bakgrunnsfarge
         items.forEach { screen ->
             NavigationBarItem(
                 icon = {
