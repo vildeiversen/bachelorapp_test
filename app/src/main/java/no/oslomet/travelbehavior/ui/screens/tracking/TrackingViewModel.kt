@@ -34,10 +34,19 @@ data class TrackingUiState(
 class TrackingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tripDao: TripDao = AppDatabase.getInstance(getApplication()).tripDao()
+    // HVA: Initialiserer TrackPointDao.
+    // HVORFOR: Vi trenger tilgang til denne for å hente de lagrede punktene for en tur.
+    private val trackPointDao: TrackPointDao = AppDatabase.getInstance(getApplication()).trackPointDao()
     private val workManager = WorkManager.getInstance(application)
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
+
+    // HVA: En ny StateFlow for å holde på listen av TrackPoint-objekter for oppsummeringsskjermen.
+    // HVORFOR: Denne vil eksponere listen av punkter til TripSummaryScreen, slik at den
+    // kan observere endringer og tegne kartet når dataen er klar.
+    private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
+    val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
     init {
         ensureFirebaseLogin()
@@ -50,6 +59,16 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         TrackingService.isTracking.onEach {
             _uiState.update { state -> state.copy(isTracking = it) }
         }.launchIn(viewModelScope)
+    }
+
+    // HVA: En ny funksjon for å laste alle punktene for en spesifikk tur fra databasen.
+    // HVORFOR: Denne funksjonen kalles fra TripSummaryScreen for å hente dataen som trengs
+    // for å tegne ruten på kartet. Den kjører i en coroutine for ikke å blokkere UI-tråden.
+    fun loadTrackPointsForTrip(tripId: String) {
+        viewModelScope.launch {
+            // Henter punktene fra databasen og oppdaterer _trackPoints-flowen.
+            _trackPoints.value = trackPointDao.getTrackPointsForTrip(tripId)
+        }
     }
 
     // HVA: En ny funksjon som sjekker om det finnes en pågående tur.
