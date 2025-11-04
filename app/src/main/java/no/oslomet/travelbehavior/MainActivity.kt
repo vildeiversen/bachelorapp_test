@@ -39,6 +39,9 @@ import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
+// HVA: Importerer den nye TripSummaryScreen
+// HVORFOR: Nødvendig for å kunne referere til den i NavHost.
+import no.oslomet.travelbehavior.ui.screens.tracking.TripSummaryScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -139,6 +142,19 @@ fun AppShell() {
                     val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController)
                     val tripId = backStackEntry.arguments?.getString("tripId")
                     SaveTripScreen(navController = navController, tripId = tripId, viewModel = sharedViewModel)
+                }
+
+                // HVA: En ny destinasjon for å vise kart-oppsummeringen i fullskjerm.
+                // HVORFOR: Definerer ruten "trip_summary/{tripId}" som vi navigerer til
+                // fra forhåndsvisningen i SaveTripScreen. Den gjenbruker den samme delte
+                // ViewModel-en for å få tilgang til de allerede lastede punktene.
+                composable(
+                    route = "trip_summary/{tripId}",
+                    arguments = listOf(navArgument("tripId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController)
+                    val tripId = backStackEntry.arguments?.getString("tripId")
+                    TripSummaryScreen(navController = navController, tripId = tripId, viewModel = sharedViewModel)
                 }
             }
         }

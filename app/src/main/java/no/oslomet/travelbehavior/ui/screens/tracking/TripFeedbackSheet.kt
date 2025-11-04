@@ -105,7 +105,7 @@ fun TripFeedbackSheet(
                 val minutes = delayMinutes.toIntOrNull()
                 onSave(tripRating, delayRating, minutes, delayComment)
             },
-            enabled = tripRating > 0 && delayRating > 0,
+            enabled = tripRating > 0,
             colors = ButtonDefaults.buttonColors(
                 contentColor = TextLight
             )
