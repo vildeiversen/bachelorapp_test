@@ -56,12 +56,12 @@ fun TripFeedbackSheet(
         Text("Rate your trip", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("rate the trip (1 = bad, 5 = great)", modifier = Modifier.fillMaxWidth())
+        Text("rate the trip (1 = Bad, 5 = Great)", modifier = Modifier.fillMaxWidth())
         StarRating(rating = tripRating, onRatingChanged = { tripRating = it })
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("rate the delay (1 = huge delay, 5 = no delay)", modifier = Modifier.fillMaxWidth())
+        Text("rate the delay (1 = No delay, 5 = Huge delay)", modifier = Modifier.fillMaxWidth())
         StarRating(rating = delayRating, onRatingChanged = { delayRating = it })
 
         Spacer(modifier = Modifier.height(16.dp))
