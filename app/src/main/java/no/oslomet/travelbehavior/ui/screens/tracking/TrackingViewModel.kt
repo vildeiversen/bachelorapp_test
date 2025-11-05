@@ -5,6 +5,8 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
 import androidx.work.NetworkType
@@ -31,9 +33,8 @@ data class TrackingUiState(
     val isSaving: Boolean = false
 )
 
-class TrackingViewModel(application: Application) : AndroidViewModel(application) {
+class TrackingViewModel(val tripDao: TripDao, application: Application) : AndroidViewModel(application) {
 
-    private val tripDao: TripDao = AppDatabase.getInstance(getApplication()).tripDao()
     private val workManager = WorkManager.getInstance(application)
 
     private val _uiState = MutableStateFlow(TrackingUiState())
@@ -41,7 +42,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
     init {
         ensureFirebaseLogin()
-        restoreTripIdIfActive() // FIKS: Gjenoppretter tur-ID ved oppstart
+        restoreTripIdIfActive()
 
         TrackingService.pathPoints.onEach {
             _uiState.update { state -> state.copy(pathPoints = it) }
@@ -52,9 +53,6 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         }.launchIn(viewModelScope)
     }
 
-    // HVA: En ny funksjon som sjekker om det finnes en pågående tur.
-    // HVORFOR: Dette er avgjørende for å gjenopprette tilstanden hvis appen har
-    // blitt lukket og åpnet igjen midt i en tur.
     private fun restoreTripIdIfActive() {
         val activeTripId = TripManager.getTripId(getApplication())
         if (activeTripId != null) {
@@ -73,10 +71,8 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun stopTracking(): String? {
-        // FIKS: Henter ID-en FØR servicen stoppes
         val tripId = TripManager.getTripId(getApplication())
         sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
-        // TripManager.clearTripId() skjer nå kun etter vellykket lagring.
         return tripId
     }
 
@@ -106,7 +102,6 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
                 scheduleTripSync()
 
-                // Først NÅ er det trygt å fjerne ID-en
                 TripManager.clearTripId(getApplication())
                 _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
 
@@ -134,7 +129,6 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
             tripDao.deleteById(localTripId)
-            // Også trygt å fjerne ID-en her
             TripManager.clearTripId(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
             Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
@@ -145,6 +139,22 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         val auth = FirebaseAuth.getInstance()
         if (auth.currentUser == null) {
             auth.signInAnonymously()
+        }
+    }
+
+    companion object {
+        // REFACTOR: Removed the default parameter that was causing the test to crash.
+        fun provideFactory(
+            application: Application,
+            tripDao: TripDao
+        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(TrackingViewModel::class.java)) {
+                    return TrackingViewModel(tripDao, application) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
         }
     }
 }
