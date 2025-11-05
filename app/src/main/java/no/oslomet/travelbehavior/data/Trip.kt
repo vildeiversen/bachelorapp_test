@@ -16,6 +16,9 @@ data class Trip(
     @PrimaryKey
     val id: String,
 
+    // HVORFOR: Tidsstempel for når turen startet.
+    val startTimestamp: Long,
+
     // HVORFOR: Tidsstempel for når turen ble avsluttet. Nyttig for sortering og feilsøking.
     val endTimestamp: Long,
 

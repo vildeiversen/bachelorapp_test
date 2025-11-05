@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import no.oslomet.travelbehavior.network.TrackPointDto
+import java.util.Date
 
 class FirebaseRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -25,10 +26,10 @@ class FirebaseRepository(
         return db.collection("users").document(userId)
     }
 
-    suspend fun startTrip(): String {
+    suspend fun startTrip(startTimestamp: Long): String {
         ensureSignedInAnonymously()
         val tripRef = userRoot().collection("trips").document()
-        val trip = TripDTO(startedAt = Timestamp.now())
+        val trip = TripDTO(startedAt = Timestamp(Date(startTimestamp)))
         tripRef.set(trip).await()
         Log.d("FirebaseRepo", "Started new trip in Firebase with ID: ${tripRef.id}")
         return tripRef.id
@@ -36,6 +37,7 @@ class FirebaseRepository(
 
     suspend fun endTrip(
         tripId: String,
+        endTimestamp: Long,
         tripRating: Int,
         delayRating: Int,
         delayMinutes: Int?,
@@ -43,7 +45,7 @@ class FirebaseRepository(
     ) {
         ensureSignedInAnonymously()
         val tripUpdates = mapOf(
-            "endedAt" to Timestamp.now(),
+            "endedAt" to Timestamp(Date(endTimestamp)),
             "tripRating" to tripRating,
             "delayRating" to delayRating,
             "delayMinutes" to delayMinutes,
