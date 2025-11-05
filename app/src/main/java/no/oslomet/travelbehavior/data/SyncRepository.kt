@@ -13,7 +13,7 @@ class SyncRepository(
     suspend fun syncSingleTrip(trip: Trip) = withContext(Dispatchers.IO) {
         Log.d("SyncRepository", "Starting sync for local trip ID: ${trip.id}")
         try {
-            val firebaseTripId = remote.startTrip()
+            val firebaseTripId = remote.startTrip(trip.startTimestamp)
             Log.d("SyncRepository", "Created Firebase trip: $firebaseTripId")
 
             val trackPoints = trackPointDao.getTrackPointsForTrip(trip.id)
@@ -30,6 +30,7 @@ class SyncRepository(
 
             remote.endTrip(
                 tripId = firebaseTripId,
+                endTimestamp = trip.endTimestamp,
                 tripRating = trip.overallRating ?: 0,
                 delayRating = trip.delayRating ?: 0,
                 delayMinutes = trip.delayMinutes,

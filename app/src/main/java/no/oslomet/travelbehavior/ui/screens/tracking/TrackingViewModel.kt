@@ -34,23 +34,18 @@ data class TrackingUiState(
 class TrackingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tripDao: TripDao = AppDatabase.getInstance(getApplication()).tripDao()
-    // HVA: Initialiserer TrackPointDao.
-    // HVORFOR: Vi trenger tilgang til denne for å hente de lagrede punktene for en tur.
     private val trackPointDao: TrackPointDao = AppDatabase.getInstance(getApplication()).trackPointDao()
     private val workManager = WorkManager.getInstance(application)
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
 
-    // HVA: En ny StateFlow for å holde på listen av TrackPoint-objekter for oppsummeringsskjermen.
-    // HVORFOR: Denne vil eksponere listen av punkter til TripSummaryScreen, slik at den
-    // kan observere endringer og tegne kartet når dataen er klar.
     private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
     val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
     init {
         ensureFirebaseLogin()
-        restoreTripIdIfActive() // FIKS: Gjenoppretter tur-ID ved oppstart
+        restoreTripIdIfActive()
 
         TrackingService.pathPoints.onEach {
             _uiState.update { state -> state.copy(pathPoints = it) }
@@ -61,19 +56,12 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         }.launchIn(viewModelScope)
     }
 
-    // HVA: En ny funksjon for å laste alle punktene for en spesifikk tur fra databasen.
-    // HVORFOR: Denne funksjonen kalles fra TripSummaryScreen for å hente dataen som trengs
-    // for å tegne ruten på kartet. Den kjører i en coroutine for ikke å blokkere UI-tråden.
     fun loadTrackPointsForTrip(tripId: String) {
         viewModelScope.launch {
-            // Henter punktene fra databasen og oppdaterer _trackPoints-flowen.
             _trackPoints.value = trackPointDao.getTrackPointsForTrip(tripId)
         }
     }
 
-    // HVA: En ny funksjon som sjekker om det finnes en pågående tur.
-    // HVORFOR: Dette er avgjørende for å gjenopprette tilstanden hvis appen har
-    // blitt lukket og åpnet igjen midt i en tur.
     private fun restoreTripIdIfActive() {
         val activeTripId = TripManager.getTripId(getApplication())
         if (activeTripId != null) {
@@ -92,10 +80,10 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun stopTracking(): String? {
-        // FIKS: Henter ID-en FØR servicen stoppes
         val tripId = TripManager.getTripId(getApplication())
+        // FIKS: Lagrer slutt-tidspunktet NÅ, i det bruker trykker stopp.
+        TripManager.saveTripEndTime(getApplication())
         sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
-        // TripManager.clearTripId() skjer nå kun etter vellykket lagring.
         return tripId
     }
 
@@ -110,9 +98,14 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
+                val startTime = TripManager.getTripStartTime(getApplication())
+                // FIKS: Henter det nøyaktige slutt-tidspunktet som ble lagret tidligere.
+                val endTime = TripManager.getTripEndTime(getApplication())
+
                 val trip = Trip(
                     id = localTripId,
-                    endTimestamp = System.currentTimeMillis(),
+                    startTimestamp = if (startTime != 0L) startTime else System.currentTimeMillis(),
+                    endTimestamp = if (endTime != 0L) endTime else System.currentTimeMillis(), // Bruker lagret tid
                     overallRating = tripRating,
                     delayRating = delayRating,
                     delayMinutes = delayMinutes,
@@ -125,8 +118,10 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
                 scheduleTripSync()
 
-                // Først NÅ er det trygt å fjerne ID-en
+                // FIKS: Rengjør ALLE midlertidige verdier
                 TripManager.clearTripId(getApplication())
+                TripManager.clearTripStartTime(getApplication())
+                TripManager.clearTripEndTime(getApplication())
                 _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
 
             } catch (e: Exception) {
@@ -153,8 +148,11 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
             tripDao.deleteById(localTripId)
-            // Også trygt å fjerne ID-en her
+
+            // FIKS: Rengjør ALLE midlertidige verdier
             TripManager.clearTripId(getApplication())
+            TripManager.clearTripStartTime(getApplication())
+            TripManager.clearTripEndTime(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
             Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
         }
