@@ -74,6 +74,12 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
         val localTripId = UUID.randomUUID().toString()
         Log.d("TrackingViewModel", "Starting new LOCAL-ONLY trip with ID: $localTripId")
         TripManager.saveTripId(getApplication(), localTripId)
+        
+        // FIKS: Lagrer midnatt-ankerpunktet FØRST for å garantere at det er tilgjengelig.
+        TripManager.saveTripStartDayMidnight(getApplication())
+        // FIKS: Lagrer deretter den relative starttiden for turen.
+        TripManager.saveTripStartTime(getApplication())
+
         _uiState.update { it.copy(activeTripId = localTripId) }
 
         sendCommandToService(TrackingService.ACTION_START_SERVICE)
@@ -81,7 +87,6 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
     fun stopTracking(): String? {
         val tripId = TripManager.getTripId(getApplication())
-        // FIKS: Lagrer slutt-tidspunktet NÅ, i det bruker trykker stopp.
         TripManager.saveTripEndTime(getApplication())
         sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
         return tripId
@@ -99,13 +104,17 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(isSaving = true) }
             try {
                 val startTime = TripManager.getTripStartTime(getApplication())
-                // FIKS: Henter det nøyaktige slutt-tidspunktet som ble lagret tidligere.
                 val endTime = TripManager.getTripEndTime(getApplication())
+                val midnight = TripManager.getTripStartDayMidnight(getApplication())
+
+                // FIKS: Fallback for å beregne relativ tid dersom den mangler.
+                // Dette forhindrer at absolutte timestamps (System.currentTimeMillis) blandes med relative.
+                val relativeNow = if (midnight != 0L) System.currentTimeMillis() - midnight else 0L
 
                 val trip = Trip(
                     id = localTripId,
-                    startTimestamp = if (startTime != 0L) startTime else System.currentTimeMillis(),
-                    endTimestamp = if (endTime != 0L) endTime else System.currentTimeMillis(), // Bruker lagret tid
+                    startTimestamp = if (startTime != 0L) startTime else relativeNow,
+                    endTimestamp = if (endTime != 0L) endTime else relativeNow,
                     overallRating = tripRating,
                     delayRating = delayRating,
                     delayMinutes = delayMinutes,
@@ -118,10 +127,11 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
                 scheduleTripSync()
 
-                // FIKS: Rengjør ALLE midlertidige verdier
+                // FIKS: Rengjør ALLE midlertidige verdier, inkludert midnatt-ankerpunktet.
                 TripManager.clearTripId(getApplication())
                 TripManager.clearTripStartTime(getApplication())
                 TripManager.clearTripEndTime(getApplication())
+                TripManager.clearTripStartDayMidnight(getApplication())
                 _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
 
             } catch (e: Exception) {
@@ -149,10 +159,11 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
             tripDao.deleteById(localTripId)
 
-            // FIKS: Rengjør ALLE midlertidige verdier
+            // FIKS: Rengjør ALLE midlertidige verdier, inkludert midnatt-ankerpunktet.
             TripManager.clearTripId(getApplication())
             TripManager.clearTripStartTime(getApplication())
             TripManager.clearTripEndTime(getApplication())
+            TripManager.clearTripStartDayMidnight(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
             Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
         }

@@ -6,7 +6,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import no.oslomet.travelbehavior.network.TrackPointDto
-import java.util.Date
 
 class FirebaseRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -29,7 +28,8 @@ class FirebaseRepository(
     suspend fun startTrip(startTimestamp: Long): String {
         ensureSignedInAnonymously()
         val tripRef = userRoot().collection("trips").document()
-        val trip = TripDTO(startedAt = Timestamp(Date(startTimestamp)))
+        // FIKS: Lagrer den relative Long-verdien direkte, uten konvertering.
+        val trip = TripDTO(startedAt = startTimestamp)
         tripRef.set(trip).await()
         Log.d("FirebaseRepo", "Started new trip in Firebase with ID: ${tripRef.id}")
         return tripRef.id
@@ -45,7 +45,8 @@ class FirebaseRepository(
     ) {
         ensureSignedInAnonymously()
         val tripUpdates = mapOf(
-            "endedAt" to Timestamp(Date(endTimestamp)),
+            // FIKS: Lagrer den relative Long-verdien direkte.
+            "endedAt" to endTimestamp,
             "tripRating" to tripRating,
             "delayRating" to delayRating,
             "delayMinutes" to delayMinutes,
@@ -56,13 +57,10 @@ class FirebaseRepository(
         Log.d("FirebaseRepo", "Ended and rated trip in Firebase with ID: $tripId")
     }
 
-    // HVORFOR: Å sende mange punkter i ett kall er mye raskere og mer effektivt
-    // enn å sende ett og ett. Dette reduserer nettverkstrafikk og batteribruk.
     suspend fun addTrackPointsBatch(tripId: String, points: List<TrackPointDto>) {
         ensureSignedInAnonymously()
         val tripPointsCollection = userRoot().collection("trips").document(tripId).collection("track_points")
 
-        // Deler listen opp i biter på 500, siden det er maks for en Firestore-batch.
         points.chunked(500).forEach { chunk ->
             val batch = db.batch()
             chunk.forEach { point ->
@@ -75,9 +73,10 @@ class FirebaseRepository(
     }
 }
 
+// FIKS: Endret tidspunkter fra Timestamp til Long for å lagre rå millisekund-verdi.
 data class TripDTO(
-    val startedAt: Timestamp = Timestamp.now(),
-    val endedAt: Timestamp? = null,
+    val startedAt: Long? = null,
+    val endedAt: Long? = null,
     val note: String? = null,
     val tripRating: Int? = null,
     val delayRating: Int? = null,
