@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import com.google.android.gms.location.*
@@ -22,7 +23,6 @@ import no.oslomet.travelbehavior.data.AppDatabase
 import no.oslomet.travelbehavior.data.TrackPoint
 import no.oslomet.travelbehavior.data.TrackPointDao
 import no.oslomet.travelbehavior.data.TripManager
-import java.util.Date
 
 class TrackingService : LifecycleService() {
 
@@ -55,14 +55,12 @@ class TrackingService : LifecycleService() {
         intent?.let {
             when (it.action) {
                 ACTION_START_SERVICE -> {
-                    TripManager.saveTripStartTime(this)
+                    // FIKS: Ansvaret for å lagre starttid er flyttet til ViewModel.
                     startForegroundService()
                     _isTracking.value = true
                     _pathPoints.value = emptyList()
                 }
                 ACTION_STOP_SERVICE -> {
-                    // FIKS: Fjerner for tidlig sletting av start-tidspunktet. Ansvaret flyttes til ViewModel.
-                    // TripManager.clearTripStartTime(this)
                     stopService()
                 }
             }
@@ -101,11 +99,21 @@ class TrackingService : LifecycleService() {
 
                     serviceScope.launch {
                         val tripId = TripManager.getTripId(applicationContext) ?: return@launch
+                        
+                        // FIKS: Henter midnatt-ankerpunktet for turen.
+                        val midnight = TripManager.getTripStartDayMidnight(applicationContext)
+                        if (midnight == 0L) {
+                            Log.e("TrackingService", "Klarte ikke hente midnatt-anker. Avbryter lagring av punkt.")
+                            return@launch
+                        }
+
+                        // FIKS: Beregner nå millisekunder siden startdagens midnatt.
+                        val millisSinceStartDayMidnight = location.time - midnight
 
                         trackPointDao.insert(
                             TrackPoint(
                                 tripId = tripId,
-                                timestamp = Date(),
+                                timestamp = millisSinceStartDayMidnight,
                                 lat = location.latitude,
                                 lon = location.longitude,
                                 acc = location.accuracy
