@@ -4,12 +4,10 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
 
 // @Database tells Room which tables (entities) are contained in the database
 // and the version number of the database.
-@Database(entities = [TrackPoint::class, Trip::class], version = 4) // FIKS: Økt versjon pga. endring i TrackPoint
-@TypeConverters(Converters::class) // Fix = tells Room about our new translator
+@Database(entities = [TrackPoint::class, Trip::class], version = 5) // FIKS: Økt versjon pga. fjerning av TypeConverters
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackPointDao(): TrackPointDao
     abstract fun tripDao(): TripDao
