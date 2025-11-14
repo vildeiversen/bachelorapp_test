@@ -1,11 +1,12 @@
 package no.oslomet.travelbehavior.data
 
 import android.util.Log
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import no.oslomet.travelbehavior.network.TrackPointDto
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class FirebaseRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -25,11 +26,17 @@ class FirebaseRepository(
         return db.collection("users").document(userId)
     }
 
+    private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
     suspend fun startTrip(startTimestamp: Long): String {
         ensureSignedInAnonymously()
         val tripRef = userRoot().collection("trips").document()
-        // FIKS: Lagrer den relative Long-verdien direkte, uten konvertering.
-        val trip = TripDTO(startedAt = startTimestamp)
+
+        val trip = TripDTO(
+            startedAt = startTimestamp,
+            startedAtString = timeFormatter.format(Date(startTimestamp))
+        )
+
         tripRef.set(trip).await()
         Log.d("FirebaseRepo", "Started new trip in Firebase with ID: ${tripRef.id}")
         return tripRef.id
@@ -45,8 +52,8 @@ class FirebaseRepository(
     ) {
         ensureSignedInAnonymously()
         val tripUpdates = mapOf(
-            // FIKS: Lagrer den relative Long-verdien direkte.
             "endedAt" to endTimestamp,
+            "endedAtString" to timeFormatter.format(Date(endTimestamp)),
             "tripRating" to tripRating,
             "delayRating" to delayRating,
             "delayMinutes" to delayMinutes,
@@ -73,10 +80,11 @@ class FirebaseRepository(
     }
 }
 
-// FIKS: Endret tidspunkter fra Timestamp til Long for å lagre rå millisekund-verdi.
 data class TripDTO(
     val startedAt: Long? = null,
+    val startedAtString: String? = null,
     val endedAt: Long? = null,
+    val endedAtString: String? = null,
     val note: String? = null,
     val tripRating: Int? = null,
     val delayRating: Int? = null,
