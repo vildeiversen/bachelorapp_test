@@ -97,6 +97,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.10")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("io.mockk:mockk:1.13.12")
 
     // Android Testing
     androidTestImplementation(libs.androidx.junit)
@@ -106,6 +107,7 @@ dependencies {
     androidTestImplementation("io.mockk:mockk-android:1.13.10")
     androidTestImplementation("androidx.room:room-testing:2.6.1") // NEW: For in-memory database
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
+    androidTestImplementation("io.mockk:mockk-android:1.13.12")
 
 
 

@@ -1,23 +1,31 @@
 package no.oslomet.travelbehavior
 
 import android.app.Application
+import android.content.Intent
 import android.util.Log
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.work.WorkManager
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
+import io.mockk.runs
 import io.mockk.unmockkAll
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import no.oslomet.travelbehavior.data.TripDao
 import no.oslomet.travelbehavior.data.TripManager
+import no.oslomet.travelbehavior.location.TrackingService
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingUiState
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingViewModel
 import org.junit.After
@@ -26,74 +34,134 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-/**
- * Local unit test for the TrackingViewModel.
- *
- * This test class verifies the logic of the [TrackingViewModel] in isolation,
- * using mocks for its dependencies. It runs on the local JVM and does not require
- * an Android device or emulator.
- */
-//change2
-
 @ExperimentalCoroutinesApi
 class TrackingViewModelUnitTest {
 
-    // This rule swaps the background executor used by the Architecture Components with a different one which executes each task synchronously.
     @get:Rule
     val instantExecutorRule = InstantTaskExecutorRule()
 
-    // A test dispatcher for controlling coroutines execution in tests.
     private val testDispatcher = StandardTestDispatcher()
 
-    // Mocks for the ViewModel's dependencies.
     private lateinit var tripDao: TripDao
     private lateinit var application: Application
-
-    // The ViewModel under test.
     private lateinit var viewModel: TrackingViewModel
+
+    private lateinit var isTrackingFlow: MutableStateFlow<Boolean>
+    private lateinit var pathPointsFlow: MutableStateFlow<List<LatLng>>
 
     @Before
     fun setup() {
-        // Sets the main coroutines dispatcher to our test dispatcher.
         Dispatchers.setMain(testDispatcher)
 
-        // Mock static Android framework calls before the ViewModel is initialized
+        isTrackingFlow = MutableStateFlow(false)
+        pathPointsFlow = MutableStateFlow(emptyList())
+
+        // Mock static Java methods that would otherwise hit Android / network
         mockkStatic(WorkManager::class, FirebaseAuth::class, Log::class)
-        mockkObject(TripManager) // Mock TripManager
         every { WorkManager.getInstance(any()) } returns mockk(relaxed = true)
         every { FirebaseAuth.getInstance() } returns mockk(relaxed = true)
-        every { Log.d(any(), any()) } returns 0 // Mock Log.d to prevent crash
-        every { TripManager.getTripId(any()) } returns null // Ensure it returns null initially
+        every { Log.d(any(), any()) } returns 0
 
-        // Create relaxed mocks for the other dependencies.
+        // Mock Kotlin singletons / objects
+        mockkObject(TripManager)
+        every { TripManager.getTripId(any()) } returns null
+
+        // Mock the companion object flows in TrackingService
+        mockkObject(TrackingService.Companion)
+        every { TrackingService.isTracking } returns isTrackingFlow
+        every { TrackingService.pathPoints } returns pathPointsFlow
+
+        // Mock Intent constructor so real Android setAction() is never called
+        mockkConstructor(Intent::class)
+        every { anyConstructed<Intent>().setAction(any()) } returns mockk(relaxed = true)
+
+        // Relaxed mocks for other dependencies
         tripDao = mockk(relaxed = true)
         application = mockk(relaxed = true)
 
-        // Initialize the ViewModel with the mocked dependencies.
+        // ViewModel with mocked dependencies
         viewModel = TrackingViewModel(tripDao, application)
     }
 
     @After
     fun tearDown() {
-        // Resets the main dispatcher to the original one.
         Dispatchers.resetMain()
-        // Clears all mocks.
         unmockkAll()
     }
 
     @Test
     fun `initial uiState should be the default state`() = runTest {
-        // Arrange: The expected initial state.
         val expectedState = TrackingUiState()
-
-        // Act: Get the current state from the ViewModel.
         val actualState = viewModel.uiState.value
-
-        // Assert: The actual state should match the expected initial state.
         assertEquals(expectedState, actualState)
     }
 
-    // You can add more tests here. For example:
-    // - A test to verify that calling startTracking() updates the uiState correctly.
-    // - A test to verify that the correct trip is loaded from the dao.
+    @Test
+    fun `startTracking should update state and save trip id`() = runTest {
+        every { TripManager.saveTripId(any(), any()) } just runs
+        every { application.startService(any()) } returns mockk()
+
+        viewModel.startTracking()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val newTripId = viewModel.uiState.value.activeTripId
+        val nonNullTripId = requireNotNull(newTripId)
+
+        // Verify we saved the trip id
+        verify { TripManager.saveTripId(application, nonNullTripId) }
+
+        // Verify that a service start was requested (we don't care about the Intent details here)
+        verify { application.startService(any()) }
+    }
+
+    @Test
+    fun `stopTracking should return trip id and send stop action to service`() = runTest {
+        val activeTripId = "test-trip-123"
+
+        // When stopTracking asks TripManager for the id, return this value
+        every { TripManager.getTripId(any()) } returns activeTripId
+
+        // We don't care about the real Intent, just that startService is called
+        every { application.startService(any()) } returns mockk()
+
+        // Call the function under test
+        val returnedId = viewModel.stopTracking()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // 1) It should return the trip id
+        assertEquals(activeTripId, returnedId)
+
+        // 2) It should read the id from TripManager
+        verify { TripManager.getTripId(context = application) }
+
+        // 3) It should request starting the service (with the stop action inside)
+        verify { application.startService(any()) }
+    }
+
+    @Test
+    fun `viewModel should restore active trip on init`() = runTest {
+        val activeTripId = "test-trip-123"
+        every { TripManager.getTripId(any()) } returns activeTripId
+
+        val newViewModel = TrackingViewModel(tripDao, application)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(activeTripId, newViewModel.uiState.value.activeTripId)
+    }
+
+    @Test
+    fun `uiState should update when TrackingService state changes`() = runTest {
+        assertEquals(false, viewModel.uiState.value.isTracking)
+        assertEquals(emptyList<LatLng>(), viewModel.uiState.value.pathPoints)
+
+        isTrackingFlow.value = true
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.isTracking)
+
+        val testPoints = listOf(LatLng(1.0, 1.0), LatLng(2.0, 2.0))
+        pathPointsFlow.value = testPoints
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(testPoints, viewModel.uiState.value.pathPoints)
+    }
 }
+

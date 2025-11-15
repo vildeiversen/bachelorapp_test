@@ -16,45 +16,38 @@ val Context.consentDataStore by preferencesDataStore(name = DS_NAME)
 
 // ---------- Keys ----------
 private object Keys {
-    val CONSENT_GIVEN: Preferences.Key<Boolean> =
-        booleanPreferencesKey("consent_given")
-    val CONSENT_VERSION: Preferences.Key<Int> =
-        intPreferencesKey("consent_version_accepted")
+    val CONSENT_GIVEN = booleanPreferencesKey("consent_given")
+    val CONSENT_VERSION = intPreferencesKey("consent_version_accepted")
 }
 
-// ---------- Public model ----------
-data class ConsentState(
-    val consentGiven: Boolean,
-    val acceptedVersion: Int
-)
+/**
+ * The concrete implementation of the [ConsentRepository] that uses DataStore.
+ * This class is now the "real" repository that talks to the device storage.
+ */
+class ConsentRepositoryImpl(private val context: Context) : ConsentRepository {
 
-// ---------- Repository ----------
-class ConsentRepository(private val context: Context) {
+    private val CURRENT_CONSENT_VERSION: Int = 1
 
-    /** Bump this when the consent text meaningfully changes */
-    val CURRENT_CONSENT_VERSION: Int = 1
-
-    val consentState: Flow<ConsentState> =
-        context.consentDataStore.data.map { prefs ->
+    override fun hasGivenConsent(): Flow<Boolean> {
+        return context.consentDataStore.data.map { prefs ->
             val given = prefs[Keys.CONSENT_GIVEN] ?: false
             val version = prefs[Keys.CONSENT_VERSION] ?: 0
-            ConsentState(
-                consentGiven = given && version >= CURRENT_CONSENT_VERSION,
-                acceptedVersion = version
-            )
-        }
-
-    suspend fun accept() {
-        context.consentDataStore.edit { prefs ->
-            prefs[Keys.CONSENT_GIVEN] = true
-            prefs[Keys.CONSENT_VERSION] = CURRENT_CONSENT_VERSION
+            given && version >= CURRENT_CONSENT_VERSION
         }
     }
 
-    suspend fun revoke() {
+    override fun getConsentVersion(): Flow<Int> {
+        return context.consentDataStore.data.map { prefs ->
+            prefs[Keys.CONSENT_VERSION] ?: 0
+        }
+    }
+
+    override suspend fun saveConsent(given: Boolean, version: Int) {
         context.consentDataStore.edit { prefs ->
-            prefs[Keys.CONSENT_GIVEN] = false
-            // optionally: prefs[Keys.CONSENT_VERSION] = 0
+            prefs[Keys.CONSENT_GIVEN] = given
+            if (given) {
+                prefs[Keys.CONSENT_VERSION] = version
+            }
         }
     }
 }
