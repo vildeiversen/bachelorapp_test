@@ -26,7 +26,6 @@ class TripSyncWorker(
     override suspend fun doWork(): Result {
         Log.d("TripSyncWorker", "Worker started. Checking for unsynced trips.")
 
-        // 1. Hent alle turer som ikke er synkronisert
         val unsyncedTrips = tripDao.getUnsyncedTrips()
         if (unsyncedTrips.isEmpty()) {
             Log.d("TripSyncWorker", "No unsynced trips found. Worker finishing.")
@@ -35,19 +34,26 @@ class TripSyncWorker(
 
         Log.d("TripSyncWorker", "Found ${unsyncedTrips.size} trips to sync.")
 
-        // 2. Gå gjennom hver usynkroniserte tur og synkroniser den
+        // FIKS: Endret logikk for å unngå dobbeltlagring ved feil.
+        // HVORFOR: Ved å spore feil individuelt og ikke returnere midt i løkken,
+        // sikrer vi at turer som allerede er synkronisert, ikke blir forsøkt
+        // på nytt. Hvis én tur feiler, vil kun den bli forsøkt på nytt neste gang.
+        var allSucceeded = true
         unsyncedTrips.forEach { trip ->
             try {
-                // 3. Kaller den sentraliserte synk-logikken i SyncRepository
                 syncRepo.syncSingleTrip(trip)
             } catch (e: Exception) {
-                Log.e("TripSyncWorker", "Sync failed for trip ${trip.id}. Worker will retry later.", e)
-                // Hvis noe feiler, vil WorkManager automatisk prøve jobben på nytt senere.
-                return Result.failure()
+                Log.e("TripSyncWorker", "Sync failed for trip ${trip.id}. It will be retried.", e)
+                allSucceeded = false
             }
         }
 
-        Log.d("TripSyncWorker", "Sync finished successfully for all trips.")
-        return Result.success()
+        return if (allSucceeded) {
+            Log.d("TripSyncWorker", "Sync finished successfully for all trips.")
+            Result.success()
+        } else {
+            Log.d("TripSyncWorker", "Sync finished with one or more failures. Retrying later.")
+            Result.retry()
+        }
     }
 }
