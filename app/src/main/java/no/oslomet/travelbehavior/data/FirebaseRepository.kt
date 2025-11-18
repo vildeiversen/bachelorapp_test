@@ -85,7 +85,6 @@ data class TripDTO(
     val startedAtString: String? = null,
     val endedAt: Long? = null,
     val endedAtString: String? = null,
-    val note: String? = null,
     val tripRating: Int? = null,
     val delayRating: Int? = null,
     val delayMinutes: Int? = null,
