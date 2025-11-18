@@ -14,5 +14,6 @@ data class TrackPoint(
     val lat: Double,
     val lon: Double,
     val acc: Float?,
-    val uploaded: Boolean = false
+    // FIKS: Omdøpt fra 'uploaded' til 'isSynced' for konsistens med Trip-tabellen.
+    val isSynced: Boolean = false
 )
