@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -60,7 +61,11 @@ fun ConsentScreen(
             Spacer(Modifier.height(12.dp))
 
             Row {
-                Checkbox(checked = agreeChecked, onCheckedChange = onAgreeChange)
+                Checkbox(
+                    checked = agreeChecked,
+                    onCheckedChange = onAgreeChange,
+                    modifier = Modifier.testTag("agree_checkbox") // Added testTag
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("I have read and agree to the terms above.")
             }
