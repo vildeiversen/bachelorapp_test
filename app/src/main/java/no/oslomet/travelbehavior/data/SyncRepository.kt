@@ -11,9 +11,6 @@ class SyncRepository(
     private val remote: FirebaseRepository
 ) {
 
-    // FIKS: Fullstendig omskriving for å støtte gjenopptakbar synkronisering.
-    // HVORFOR: Forhindrer dobbeltlagring ved nettverksfeil. Hvis prosessen
-    // feiler halvveis, vil den fortsette der den slapp neste gang.
     suspend fun syncSingleTrip(trip: Trip) = withContext(Dispatchers.IO) {
         Log.d("SyncRepository", "Starting resumable sync for local trip ID: ${trip.id}")
 
@@ -30,10 +27,8 @@ class SyncRepository(
 
             // STEG 2: Last opp usynkroniserte punkter i grupper
             val unsyncedPoints = trackPointDao.getUnsyncedTrackPointsForTrip(trip.id)
-            Log.d("SyncRepository", "Found ${unsyncedPoints.size} unsynced points for trip $firebaseTripId.")
-
             if (unsyncedPoints.isNotEmpty()) {
-                // Laster opp i grupper for å unngå minneproblemer og store enkelt-opplastinger
+                Log.d("SyncRepository", "Found ${unsyncedPoints.size} unsynced points for trip $firebaseTripId.")
                 unsyncedPoints.chunked(100).forEach { chunk ->
                     val pointDtos = chunk.map { it.toDto() }
                     remote.addTrackPointsBatch(firebaseTripId, pointDtos)
@@ -45,7 +40,7 @@ class SyncRepository(
                 }
             }
 
-            // STEG 3: Fullfør turen i Firebase og lokalt
+            // STEG 3: Fullfør turen i Firebase
             Log.d("SyncRepository", "All points synced. Ending trip $firebaseTripId in Firebase.")
             remote.endTrip(
                 tripId = firebaseTripId,
@@ -56,9 +51,12 @@ class SyncRepository(
                 delayComment = trip.delayComment
             )
 
-            // Siste steg: Marker hele den lokale turen som ferdig
-            tripDao.markAsSynced(localId = trip.id, firebaseId = firebaseTripId)
-            Log.d("SyncRepository", "Successfully marked local trip ${trip.id} as fully synced.")
+            // FIKS: STEG 4: Slett turen og punktene lokalt etter vellykket opplasting.
+            // HVORFOR: Forhindrer at den lokale databasen vokser i det uendelige.
+            Log.d("SyncRepository", "Sync successful. Deleting local trip ${trip.id} and its points.")
+            trackPointDao.deleteByTripId(trip.id)
+            tripDao.deleteById(trip.id)
+            Log.d("SyncRepository", "Successfully cleaned up local data.")
 
         } catch (e: Exception) {
             Log.e("SyncRepository", "Resumable sync failed for trip ${trip.id}. It will be retried later.", e)
