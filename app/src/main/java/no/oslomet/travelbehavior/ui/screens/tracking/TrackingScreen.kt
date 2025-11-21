@@ -64,7 +64,8 @@ fun TrackingScreenContent(
     modifier: Modifier = Modifier,
     viewModel: TrackingViewModel,
     navController: NavController,
-    permissionState: MultiplePermissionsState
+    permissionState: MultiplePermissionsState,
+    mapProperties: MapProperties = MapProperties(isMyLocationEnabled = true) // New parameter
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -87,7 +88,8 @@ fun TrackingScreenContent(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                properties = MapProperties(isMyLocationEnabled = true),
+                //properties = MapProperties(isMyLocationEnabled = true), //Old code. Remove commenting on this line and the lines with "//New paramater" to reverse.
+                properties = mapProperties, // New parameter
                 uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
             ) {
                 if (uiState.pathPoints.size > 1) {
