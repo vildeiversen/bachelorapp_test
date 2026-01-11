@@ -1,6 +1,5 @@
 package no.oslomet.travelbehavior.ui.screens.tracking
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,8 +45,6 @@ fun TripFeedbackSheet(
     var delayMinutes by remember { mutableStateOf("") }
     var delayComment by remember { mutableStateOf("") }
 
-    // HVA: Henter FocusManager.
-    // HVORFOR: Gir oss kontroll til å fjerne fokus og lukke tastaturet.
     val focusManager = LocalFocusManager.current
 
     Column(
@@ -56,22 +56,51 @@ fun TripFeedbackSheet(
         Text("Rate your trip", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("rate the trip (1 = Bad, 5 = Great)", modifier = Modifier.fillMaxWidth())
-        StarRating(rating = tripRating, onRatingChanged = { tripRating = it })
+        // TRIP RATING
+        Text("How was your trip?", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
+        StarRating(
+            rating = tripRating,
+            onRatingChanged = { tripRating = it },
+            labelProvider = { index ->
+                when(index) {
+                    1 -> "Very Bad"
+                    2 -> "Bad"
+                    3 -> "Neutral"
+                    4 -> "Good"
+                    5 -> "Excellent"
+                    else -> ""
+                }
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text("rate the delay (1 = No delay, 5 = Huge delay)", modifier = Modifier.fillMaxWidth())
-        StarRating(rating = delayRating, onRatingChanged = { delayRating = it })
+        // DELAY RATING
+        // HVA: Omvendt rekkefølge på labels (5 = No delay, 1 = Huge delay)
+        // HVORFOR: Følger MMI-prinsippet om "Mental Models" – flere stjerner = mer positivt.
+        Text("How would you rate the delay?", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
+        StarRating(
+            rating = delayRating,
+            onRatingChanged = { delayRating = it },
+            labelProvider = { index ->
+                when(index) {
+                    5 -> "No delay"
+                    4 -> "Minor delay"
+                    3 -> "Noticeable"
+                    2 -> "Significant"
+                    1 -> "Huge delay"
+                    else -> ""
+                }
+            }
+        )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
             value = delayMinutes,
             onValueChange = { delayMinutes = it.filter { c -> c.isDigit() } },
-            label = { Text("How many minutes was the delay?") },
-            // HVA: Legger til "Neste"-knapp på tastaturet.
-            // HVORFOR: Forbedrer flyten slik at brukeren enkelt kan hoppe til neste felt.
+            label = { Text("Delay in minutes (optional)") },
+            placeholder = { Text("e.g. 5") },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
                 imeAction = ImeAction.Next
@@ -85,11 +114,9 @@ fun TripFeedbackSheet(
         OutlinedTextField(
             value = delayComment,
             onValueChange = { delayComment = it },
-            label = { Text("Optional: Describe the delay") },
+            label = { Text("Comment on the delay (optional)") },
             modifier = Modifier.fillMaxWidth(),
             maxLines = 3,
-            // HVA: Legger til "Ferdig"-knapp og en handling for den.
-            // HVORFOR: Gir brukeren en klar måte å lukke tastaturet på når de er ferdige.
             keyboardOptions = KeyboardOptions.Default.copy(
                 imeAction = ImeAction.Done
             ),
@@ -98,7 +125,7 @@ fun TripFeedbackSheet(
             )
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = {
@@ -106,27 +133,47 @@ fun TripFeedbackSheet(
                 onSave(tripRating, delayRating, minutes, delayComment)
             },
             enabled = tripRating > 0,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 contentColor = TextLight
             )
         ) {
-            Text("Save Trip")
+            Text("Save Trip", fontSize = 18.sp)
         }
     }
 }
 
 @Composable
-fun StarRating(rating: Int, onRatingChanged: (Int) -> Unit) {
-    Row {
-        (1..5).forEach { index ->
-            Icon(
-                imageVector = if (index <= rating) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                contentDescription = "Star $index",
-                modifier = Modifier
-                    .size(40.dp)
-                    .clickable { onRatingChanged(index) },
-                tint = if (index <= rating) Color(0xFFFFD700) else Color.Gray
-            )
+fun StarRating(
+    rating: Int, 
+    onRatingChanged: (Int) -> Unit,
+    labelProvider: (Int) -> String
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(modifier = Modifier.selectableGroup()) {
+            (1..5).forEach { index ->
+                val isSelected = index <= rating
+                val label = labelProvider(index)
+                
+                Icon(
+                    imageVector = if (isSelected) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    contentDescription = "Rate $index stars: $label",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .selectable(
+                            selected = (index == rating),
+                            onClick = { onRatingChanged(index) }
+                        )
+                        .padding(4.dp),
+                    tint = if (isSelected) Color(0xFFFFD700) else Color.Gray
+                )
+            }
         }
+        Text(
+            text = if (rating > 0) labelProvider(rating) else "Select a rating",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (rating > 0) MaterialTheme.colorScheme.primary else Color.Gray,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }

@@ -11,16 +11,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,8 +40,6 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
-import no.oslomet.travelbehavior.ui.theme.AccentRed
-import no.oslomet.travelbehavior.ui.theme.TextLight
 
 @Composable
 fun SaveTripScreen(
@@ -45,11 +48,8 @@ fun SaveTripScreen(
     viewModel: TrackingViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // HVA: Navigerer tilbake til hovedskjermen når turen er lagret eller slettet.
-    // HVORFOR: Etter at handlingen er fullført (lagring/sletting), har ikke brukeren
-    // lenger noe å gjøre på denne skjermen. `activeTripId` blir nullstilt, og
-    // vi returnerer til forrige skjerm.
     LaunchedEffect(uiState.isSaving, uiState.activeTripId) {
         if (!uiState.isSaving && uiState.activeTripId == null) {
             navController.popBackStack()
@@ -61,9 +61,30 @@ fun SaveTripScreen(
         return
     }
 
-    // HVA: Gjør hele kolonnen rullbar.
-    // HVORFOR: Sikrer at alt innhold, inkludert kartet og knappene, er synlig
-    // selv på små skjermer eller når tastaturet er oppe.
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Trip?") },
+            text = { Text("Are you sure you want to delete this trip? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteTrip(tripId)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
@@ -78,17 +99,12 @@ fun SaveTripScreen(
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
         } else {
-            // HVA: En ny seksjon for kart-forhåndsvisningen.
-            // HVORFOR: Viser en visuell representasjon av turen direkte på lagringsskjermen.
-            // Kartet er gjort klikkbart for å navigere til en detaljert visning.
-            Text("Din reise:", style = MaterialTheme.typography.titleMedium)
+            Text("Your Trip:", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             TripSummaryPreview(tripId = tripId, viewModel = viewModel, navController = navController)
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // HVA: Tilbakemeldingsskjema for turen.
-            // HVORFOR: Lar brukeren vurdere og gi kommentarer om reisen sin.
             TripFeedbackSheet {
                 tripRating, delayRating, delayMinutes, delayComment ->
                 viewModel.saveTripAndRatings(tripId, tripRating, delayRating, delayMinutes, delayComment)
@@ -96,47 +112,37 @@ fun SaveTripScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // HVA: Knappen for å slette turen.
-            // HVORFOR: Gir brukeren en mulighet til å forkaste turen hvis de ikke ønsker å lagre den.
             Button(
-                onClick = { viewModel.deleteTrip(tripId) },
+                onClick = { showDeleteDialog = true },
                 enabled = !uiState.isSaving,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentRed,
-                    contentColor = TextLight
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError // ENDRET: Bruker tema i stedet for hardkodet hvit
                 )
             ) {
-                Text("Slett tur")
+                Text("Delete Trip")
             }
         }
     }
 }
 
-// HVA: En ny Composable for å vise en liten, klikkbar forhåndsvisning av kartet.
-// HVORFOR: Gjenbrukbarhet og lesbarhet. Ved å trekke ut logikken for kart-previewet
-// i en egen Composable, blir `SaveTripScreen` renere og enklere å forstå.
 @Composable
 private fun TripSummaryPreview(
     tripId: String,
     viewModel: TrackingViewModel,
     navController: NavController
 ) {
-    // HVA: Laster inn punktene for turen.
-    // HVORFOR: Dette kallet sørger for at ViewModel henter dataen vi trenger for å tegne kartet.
     LaunchedEffect(tripId) {
         viewModel.loadTrackPointsForTrip(tripId)
     }
 
     val trackPoints by viewModel.trackPoints.collectAsState()
-    // FIKS: Endret fra it.latitude og it.longitude til it.lat og it.lon for å matche TrackPoint-dataklassen.
     val latLngs = trackPoints.map { LatLng(it.lat, it.lon) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 10f)
     }
 
-    // HVA: Justerer kameraet for å vise hele ruten når punktene er lastet.
-    // HVORFOR: Sikrer at hele turen er synlig i det lille forhåndsvisningsvinduet.
     LaunchedEffect(latLngs) {
         if (latLngs.size > 1) {
             val boundsBuilder = LatLngBounds.builder()
@@ -145,8 +151,6 @@ private fun TripSummaryPreview(
         }
     }
 
-    // HVA: En Surface-boks som fungerer som en container for kartet.
-    // HVORFOR: `Surface` gir oss skygge og avrundede hjørner for et pent design.
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -159,9 +163,6 @@ private fun TripSummaryPreview(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                // HVA: Deaktiverer alle brukerinteraksjoner med kartet.
-                // HVORFOR: Dette er kun en forhåndsvisning. Brukeren skal ikke kunne
-                // zoome eller panorere her, kun klikke på hele feltet.
                 properties = MapProperties(isMyLocationEnabled = false),
                 uiSettings = MapUiSettings(
                     compassEnabled = false,
@@ -177,10 +178,6 @@ private fun TripSummaryPreview(
                     Polyline(points = latLngs)
                 }
             }
-            // HVA: En transparent Box som ligger over kartet for å fange trykk.
-            // HVORFOR: GoogleMap-komponenten kan "stjele" trykk-hendelser selv om
-            // interaksjon er deaktivert. Ved å legge en usynlig, klikkbar boks over,
-            // sikrer vi at trykket blir fanget opp og at navigasjonen alltid fungerer.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -189,4 +186,3 @@ private fun TripSummaryPreview(
         }
     }
 }
-
