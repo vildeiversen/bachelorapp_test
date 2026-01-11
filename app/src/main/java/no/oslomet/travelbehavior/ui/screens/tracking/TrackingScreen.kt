@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +23,6 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import no.oslomet.travelbehavior.ui.navigation.Screen
-import no.oslomet.travelbehavior.ui.theme.TextLight
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -37,10 +37,6 @@ fun TrackingScreen(
         listOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
-    // HVA: Lagt til en onPermissionsResult callback.
-    // HVORFOR: Denne koden kjøres automatisk rett etter at brukeren har svart på
-    // tillatelsesspørsmålet. Hvis alle tillatelser ble gitt, starter sporingen
-    // umiddelbart, uten at brukeren må trykke en gang til.
     val permissionState = rememberMultiplePermissionsState(
         permissions = requiredPermissions,
         onPermissionsResult = { permissions ->
@@ -69,7 +65,6 @@ fun TrackingScreenContent(
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isTracking) {
-        // ##### KART-VISNING (NÅR SPORING ER AKTIV) #####
         val cameraPositionState = rememberCameraPositionState {
             position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 12f)
         }
@@ -108,14 +103,15 @@ fun TrackingScreenContent(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(24.dp),
-                colors = ButtonDefaults.buttonColors(contentColor = TextLight)
+                // HVA: Endret fra TextLight til MaterialTheme.colorScheme.onPrimary
+                // HVORFOR: UU-kontrast! Sikrer at teksten blir mørk i Dark Mode.
+                colors = ButtonDefaults.buttonColors(contentColor = MaterialTheme.colorScheme.onPrimary)
             )
             {
                 Text("Stop Tracking")
             }
         }
     } else {
-        // ##### START-KNAPP-VISNING (NÅR SPORING IKKE ER AKTIV) #####
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -128,7 +124,8 @@ fun TrackingScreenContent(
                         permissionState.launchMultiplePermissionRequest()
                     }
                 },
-                colors = ButtonDefaults.buttonColors(contentColor = TextLight)
+                // HVA: Endret fra TextLight til MaterialTheme.colorScheme.onPrimary
+                colors = ButtonDefaults.buttonColors(contentColor = MaterialTheme.colorScheme.onPrimary)
             ) {
                 Text("Start Tracking Route")
             }
