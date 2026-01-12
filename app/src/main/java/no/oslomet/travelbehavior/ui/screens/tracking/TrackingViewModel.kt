@@ -123,7 +123,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
                 )
                 tripDao.insert(trip)
                 Log.d("TrackingViewModel", "Saved trip locally with ratings. Trip ID: $localTripId")
-                Toast.makeText(getApplication(), "Turen er lagret!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(getApplication(), "Trip saved successfully!", Toast.LENGTH_SHORT).show()
 
                 scheduleTripSync()
 
@@ -136,7 +136,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
             } catch (e: Exception) {
                 Log.e("TrackingViewModel", "Failed to save trip locally. Error: ${e.message}", e)
-                Toast.makeText(getApplication(), "Feil: Kunne ikke lagre turen", Toast.LENGTH_LONG).show()
+                Toast.makeText(getApplication(), "Error: The trip could not be saved.", Toast.LENGTH_LONG).show()
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -165,7 +165,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
             TripManager.clearTripEndTime(getApplication())
             TripManager.clearTripStartDayMidnight(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
-            Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(), "Trip has been deleted.", Toast.LENGTH_SHORT).show()
         }
     }
 
