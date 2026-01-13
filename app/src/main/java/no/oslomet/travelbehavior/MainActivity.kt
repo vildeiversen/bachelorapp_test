@@ -39,8 +39,6 @@ import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
-// HVA: Importerer den nye TripSummaryScreen
-// HVORFOR: Nødvendig for å kunne referere til den i NavHost.
 import no.oslomet.travelbehavior.ui.screens.tracking.TripSummaryScreen
 
 class MainActivity : ComponentActivity() {
@@ -60,11 +58,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppShell() {
     val navController = rememberNavController()
-
-    // Build the Consent VM using Application context
     val app = (LocalContext.current.applicationContext as Application)
+
+    // Henter ViewModel-ene vi trenger for å vite status i appen
     val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
+    val trackingVm: TrackingViewModel = viewModel() // Vi trenger denne for å vite isTracking status
+
     val ui = consentVm.ui.collectAsState().value
+    val trackingState by trackingVm.uiState.collectAsState()
 
     val start = when {
         ui.isLoading       -> Screen.Splash.route
@@ -72,16 +73,31 @@ fun AppShell() {
         else               -> Screen.Home.route
     }
 
-    // Hide bottom bar on the consent route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // HVA: Dynamisk tittel som nå også sjekker om sporing faktisk er aktiv.
+    // HVORFOR: Gir mer presis feedback til brukeren (MMI).
+    val topBarTitle = when {
+        currentRoute == Screen.Home.route -> "Travel Behaviour"
+        currentRoute == "tracking_screen" -> {
+            if (trackingState.isTracking) "Currently Tracking Route" else "Travel Behaviour"
+        }
+        currentRoute?.startsWith(Screen.SaveTrip.route.split("/")[0]) == true -> "Route Summary"
+        currentRoute == Screen.Settings.route -> "Settings"
+        currentRoute == Screen.ConsentReview.route -> "View Consent"
+        else -> "Travel Behaviour"
+    }
+
     val showBottomBar = currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Travel Behaviour") }
-            )
+            if (currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route) {
+                TopAppBar(
+                    title = { Text(topBarTitle) }
+                )
+            }
         },
         bottomBar = {
             if (showBottomBar) {
@@ -94,9 +110,7 @@ fun AppShell() {
             startDestination = start,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // tiny splash so you don't flash the consent screen
             composable(Screen.Splash.route) {
-                // a simple blank Box is fine
                 androidx.compose.foundation.layout.Box(Modifier)
             }
 
@@ -109,67 +123,44 @@ fun AppShell() {
                             navController.navigate(Screen.Home.route) { popUpTo(0) }
                         }
                     },
-                    onDecline = { /* Show a message??? */ }
+                    onDecline = { }
                 )
             }
 
-            composable(Screen.ConsentReview.route) { // NEW
-                ConsentReviewScreen(navController = navController) // NEW
-            } // NEW
+            composable(Screen.ConsentReview.route) {
+                ConsentReviewScreen(navController = navController)
+            }
 
             composable(Screen.Home.route) { HomeScreen() }
             composable(route = Screen.Settings.route) {
                 SettingsScreen(navController = navController)
             }
 
-            // FIKS: Nestet navigasjonsgraf for hele sporingsflyten
             navigation(
-                startDestination = "tracking_screen", // Intern startdestinasjon for grafen
-                route = Screen.Tracking.route      // Ruten som bunn-navigasjonen bruker
+                startDestination = "tracking_screen",
+                route = Screen.Tracking.route
             ) {
-                // Denne skjermen vises når man navigerer til Screen.Tracking.route
                 composable("tracking_screen") { backStackEntry ->
-                    // Henter delt ViewModel som er scopet til grafen "Screen.Tracking.route"
-                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController)
-                    TrackingScreen(navController = navController, viewModel = sharedViewModel)
+                    // Vi gjenbruker trackingVm som vi allerede har hentet øverst
+                    TrackingScreen(navController = navController, viewModel = trackingVm)
                 }
 
                 composable(
                     route = Screen.SaveTrip.route,
                     arguments = listOf(navArgument("tripId") { type = NavType.StringType })
                 ) { backStackEntry ->
-                    // Henter den *samme* delte ViewModel-instansen
-                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController)
                     val tripId = backStackEntry.arguments?.getString("tripId")
-                    SaveTripScreen(navController = navController, tripId = tripId, viewModel = sharedViewModel)
+                    SaveTripScreen(navController = navController, tripId = tripId, viewModel = trackingVm)
                 }
 
-                // HVA: En ny destinasjon for å vise kart-oppsummeringen i fullskjerm.
-                // HVORFOR: Definerer ruten "trip_summary/{tripId}" som vi navigerer til
-                // fra forhåndsvisningen i SaveTripScreen. Den gjenbruker den samme delte
-                // ViewModel-en for å få tilgang til de allerede lastede punktene.
                 composable(
                     route = "trip_summary/{tripId}",
                     arguments = listOf(navArgument("tripId") { type = NavType.StringType })
                 ) { backStackEntry ->
-                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController)
                     val tripId = backStackEntry.arguments?.getString("tripId")
-                    TripSummaryScreen(navController = navController, tripId = tripId, viewModel = sharedViewModel)
+                    TripSummaryScreen(navController = navController, tripId = tripId, viewModel = trackingVm)
                 }
             }
         }
     }
-}
-
-// FIKS: En hjelpefunksjon for å enkelt hente en delt ViewModel fra en navigasjonsgraf.
-@Composable
-inline fun <reified T : ViewModel> NavBackStackEntry.sharedViewModel(navController: NavController): T {
-    // Finner ruten til navigasjonsgrafen som denne skjermen tilhører
-    val navGraphRoute = destination.parent?.route ?: return viewModel()
-    // Finner backstack-entryen for hele grafen
-    val parentEntry = remember(this) {
-        navController.getBackStackEntry(navGraphRoute)
-    }
-    // Returnerer en ViewModel som er scopet til den overordnede grafen
-    return viewModel(parentEntry)
 }

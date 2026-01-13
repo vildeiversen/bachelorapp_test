@@ -33,7 +33,7 @@ fun ConsentReviewScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text("View Consent", style = MaterialTheme.typography.headlineSmall)
+        Text("Read and Review Consent", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
         ConsentFormCard(modifier = Modifier.fillMaxWidth())

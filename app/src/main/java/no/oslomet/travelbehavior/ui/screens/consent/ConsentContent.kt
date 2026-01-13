@@ -29,14 +29,19 @@ fun ConsentFormCard(
 
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors()
+        // HVA: Setter containerColor til surface eksplisitt
+        // HVORFOR: Dette tvinger kortet til å bruke våre grønnfarger fra Theme.kt
+        // i stedet for den lilla standardfargen (surfaceVariant).
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(Modifier.padding(16.dp)) {
             ClickableText(
                 text = text,
                 // IMPORTANT: ClickableText doesn't inherit color; set it explicitly
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = LocalContentColor.current
+                    color = MaterialTheme.colorScheme.onSurface
                 ),
                 onClick = { offset ->
                     // Open regular URLs
