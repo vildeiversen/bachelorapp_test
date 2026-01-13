@@ -14,9 +14,12 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-
+/**
+ * Unit tests for [ConsentViewModel].
+ * Uses a [FakeConsentRepository] to isolate the ViewModel's logic from persistent storage.
+ */
 @ExperimentalCoroutinesApi
-class ConsentViewModelTest {
+class ConsentViewModelUnitTest {
 
     @get:Rule
     val instantExecutorRule = InstantTaskExecutorRule()
@@ -33,84 +36,106 @@ class ConsentViewModelTest {
         Dispatchers.resetMain()
     }
 
+    /** UT-06: Verifies that the initial state is correctly set to loading and not agreed. */
     @Test
-    fun `initial state is loading and not agreed`() = runTest {
+    fun initialStateIsLoadingAndNotAgreed() = runTest {
+        // Initialize with a repository state where no data is loaded yet
         val repo = FakeConsentRepository(startGiven = false, startVersion = 0)
         val viewModel = ConsentViewModel(repo)
         val initialState = viewModel.ui.value
 
+        // Check if loading is active and agreement is false
         assertEquals(true, initialState.isLoading)
         assertEquals(false, initialState.agreeChecked)
     }
 
+    /** UT-07: Verifies that consent is required if it has not been accepted yet. */
     @Test
-    fun `consent is required if not accepted yet`() = runTest {
+    fun consentIsRequiredIfNotAcceptedYet() = runTest {
+        // Setup repository for a new user
         val repo = FakeConsentRepository(startGiven = false, startVersion = 0)
         val viewModel = ConsentViewModel(repo)
 
-        // Let the ViewModel process the initial state from the repo
+        // Advance dispatcher to allow the ViewModel to process repo data
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Verify that consent is now required and loading finished
         val finalState = viewModel.ui.value
         assertEquals(true, finalState.consentRequired)
         assertEquals(false, finalState.isLoading)
     }
 
+    /** UT-08: Verifies that consent is NOT required if it was already accepted. */
     @Test
-    fun `consent is not required if already accepted`() = runTest {
+    fun consentIsNotRequiredIfAlreadyAccepted() = runTest {
+        // Setup repository for a user who already accepted current version
         val repo = FakeConsentRepository(
             startGiven = true,
             startVersion = ConsentViewModel.CURRENT_CONSENT_VERSION
         )
         val viewModel = ConsentViewModel(repo)
 
+        // Process initial data load
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Verify that consent is not requested
         val finalState = viewModel.ui.value
         assertFalse(finalState.consentRequired)
         assertFalse(finalState.isLoading)
     }
 
+    /** UT-09: Verifies that the checkbox state in the UI reflects calls to setAgree(). */
     @Test
-    fun `checkbox state reflects setAgree`() = runTest {
+    fun checkboxStateReflectsSetAgree() = runTest {
+        // Initialize ViewModel
         val repo = FakeConsentRepository(startGiven = false, startVersion = 0)
         val viewModel = ConsentViewModel(repo)
 
+        // Assert initial unchecked state
         assertFalse(viewModel.ui.value.agreeChecked)
 
+        // Simulate user checking the box
         viewModel.setAgree(true)
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Verify the state updated
         assertEquals(true, viewModel.ui.value.agreeChecked)
     }
 
+    /** UT-10: Verifies that accepting saves the consent and triggers the onDone callback. */
     @Test
-    fun `accept saves consent and calls onDone`() = runTest {
+    fun acceptSavesConsentAndCallsOnDone() = runTest {
+        // Setup for a new user
         val repo = FakeConsentRepository(startGiven = false, startVersion = 0)
         val viewModel = ConsentViewModel(repo)
         var onDoneCalled = false
 
-        // User must agree first
+        // User must check the agreement box before they can accept
         viewModel.setAgree(true)
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Click the accept button
         viewModel.accept { onDoneCalled = true }
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Verify navigation callback was triggered and consent status updated
         assertEquals(true, onDoneCalled)
-        // Verify the repo was updated correctly
         assertEquals(false, viewModel.ui.value.consentRequired)
     }
 
+    /** UT-11: Verifies that the accept action does nothing if the agreement box is not checked. */
     @Test
-    fun `accept does nothing if not agreed`() = runTest {
+    fun acceptDoesNothingIfNotAgreed() = runTest {
+        // Setup for a user who hasn't checked the box
         val repo = FakeConsentRepository(startGiven = false, startVersion = 0)
         val viewModel = ConsentViewModel(repo)
         var onDoneCalled = false
 
+        // Attempt to accept without checking the agreement box
         viewModel.accept { onDoneCalled = true }
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Verify that the navigation callback was NOT called
         assertFalse(onDoneCalled)
     }
 }

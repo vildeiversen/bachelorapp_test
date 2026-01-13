@@ -15,15 +15,13 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Instrumented test for the [TripDao],
- * which will execute on an Android device.
- */
+/** Instrumented test for the [TripDao].
+ * Verifies database operations for reiseøkter (trips) using an in-memory database. */
+
 @ExperimentalCoroutinesApi
 @RunWith(AndroidJUnit4::class)
-class TripDaoTest {
+class TripDaoIntegrationTest {
 
-    // This rule swaps the background executor used by the Architecture Components with a different one which executes each task synchronously.
     @get:Rule
     var instantTaskExecutorRule = InstantTaskExecutorRule()
 
@@ -32,11 +30,9 @@ class TripDaoTest {
 
     @Before
     fun createDb() {
+        // Initialize an in-memory database for isolated testing
         val context = ApplicationProvider.getApplicationContext<Context>()
-        // Using an in-memory database because the information stored here disappears when the
-        // process is killed.
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
-            // Allowing main thread queries, just for testing.
             .allowMainThreadQueries()
             .build()
         tripDao = database.tripDao()
@@ -47,9 +43,11 @@ class TripDaoTest {
         database.close()
     }
 
+    /** INT-03: Verifies that a new trip can be inserted and correctly retrieved
+     * from the list of unsynced trips. */
     @Test
     fun insertTripAndGetUnsynced() = runTest {
-        // ARRANGE - Create a trip that is not synced.
+        // Create a test trip that is not yet synced
         val unsyncedTrip = Trip(
             id = "test-trip-1",
             endTimestamp = System.currentTimeMillis(),
@@ -60,18 +58,20 @@ class TripDaoTest {
             isSynced = false
         )
 
-        // ACT - Insert the trip into the database.
+        // Insert the trip into the database
         tripDao.insert(unsyncedTrip)
         val unsyncedTrips = tripDao.getUnsyncedTrips()
 
-        // ASSERT - Verify that the retrieved list contains our trip.
+        // Verify that the trip was saved and is in the unsynced list
         assertEquals(1, unsyncedTrips.size)
         assertEquals(unsyncedTrip, unsyncedTrips[0])
     }
 
+    /** INT-04: Verifies that marking a trip as synced correctly updates its
+     * status and removes it from the unsynced list. */
     @Test
     fun markAsSynced_removesTripFromUnsyncedList() = runTest {
-        // ARRANGE - Insert a trip that is not synced.
+        // Insert a trip that is initially not synced
         val trip = Trip(
             id = "test-trip-2",
             endTimestamp = System.currentTimeMillis(),
@@ -84,17 +84,19 @@ class TripDaoTest {
         tripDao.insert(trip)
         assertEquals(1, tripDao.getUnsyncedTrips().size)
 
-        // ACT - Mark the trip as synced.
+        // Update the trip's status to synced
         tripDao.markAsSynced(trip.id, "firebase-id-123")
         val unsyncedTrips = tripDao.getUnsyncedTrips()
 
-        // ASSERT - Verify that the trip is no longer in the unsynced list.
+        // Verify that the trip is no longer considered unsynced
         assertTrue(unsyncedTrips.isEmpty())
     }
 
+    /** INT-05: Verifies that a trip can be permanently deleted from the
+     * database by its unique ID. */
     @Test
     fun deleteById_removesTripFromDatabase() = runTest {
-        // ARRANGE - Insert a trip.
+        // Insert a test trip
         val trip = Trip(
             id = "test-trip-3",
             endTimestamp = System.currentTimeMillis(),
@@ -107,11 +109,11 @@ class TripDaoTest {
         tripDao.insert(trip)
         assertEquals(1, tripDao.getUnsyncedTrips().size)
 
-        // ACT - Delete the trip by its ID.
+        // Perform deletion by ID
         tripDao.deleteById(trip.id)
         val trips = tripDao.getUnsyncedTrips()
 
-        // ASSERT - Verify that the trip is no longer in the database.
+        // Verify the database is empty after deletion
         assertTrue(trips.isEmpty())
     }
 }

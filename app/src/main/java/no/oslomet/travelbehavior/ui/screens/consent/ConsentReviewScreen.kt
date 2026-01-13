@@ -14,9 +14,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import no.oslomet.travelbehavior.ui.navigation.Screen
-import no.oslomet.travelbehavior.ui.screens.consent.ConsentFormCard
-import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
-import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 
 
 @Composable

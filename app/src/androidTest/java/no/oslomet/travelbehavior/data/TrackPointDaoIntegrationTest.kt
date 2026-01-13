@@ -15,9 +15,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.Date
 
+/** Instrumented test for the [TrackPointDao].
+ * Verifies that location points are correctly persisted and linked to their respective trips. */
+
 @ExperimentalCoroutinesApi
 @RunWith(AndroidJUnit4::class)
-class TrackPointDaoTest {
+class TrackPointDaoIntegrationTest {
 
     @get:Rule
     var instantTaskExecutorRule = InstantTaskExecutorRule()
@@ -28,6 +31,7 @@ class TrackPointDaoTest {
 
     @Before
     fun createDb() {
+        // Initialize an in-memory database
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
@@ -41,9 +45,11 @@ class TrackPointDaoTest {
         database.close()
     }
 
+    /** INT-06: Verifies that multiple track points can be inserted and correctly
+     * retrieved for a specific trip, maintaining the parent-child relationship. */
     @Test
     fun insertAndGetTrackPointsForTrip() = runTest {
-        // ARRANGE - Insert a parent trip first
+        // Arrange - Insert a parent trip first to satisfy foreign key constraints
         val trip = Trip(
             id = "test-trip-1",
             endTimestamp = 0L,
@@ -55,20 +61,20 @@ class TrackPointDaoTest {
         )
         tripDao.insert(trip)
 
-        // ARRANGE - Create track points for the trip
+        // Arrange - Create coordinate points for this trip
         val point1 = TrackPoint(tripId = trip.id, lat = 1.0, lon = 1.0, acc = 10f, timestamp = Date(1000L))
         val point2 = TrackPoint(tripId = trip.id, lat = 2.0, lon = 2.0, acc = 10f, timestamp = Date(2000L))
 
-        // ACT - Insert the track points one by one
+        // Act - Insert the track points into the database
         trackPointDao.insert(point1)
         trackPointDao.insert(point2)
 
-        // ACT - Retrieve the track points for the specific trip
+        // Act - Retrieve all points linked to the test trip
         val retrievedPoints = trackPointDao.getTrackPointsForTrip(trip.id)
 
-        // ASSERT - Verify that the correct points are returned
+        // Assert - Verify that both points were retrieved correctly with auto-generated IDs
         assertEquals(2, retrievedPoints.size)
-        assertEquals(point1.copy(id = 1), retrievedPoints[0]) // Room auto-generates IDs
+        assertEquals(point1.copy(id = 1), retrievedPoints[0])
         assertEquals(point2.copy(id = 2), retrievedPoints[1])
     }
 }

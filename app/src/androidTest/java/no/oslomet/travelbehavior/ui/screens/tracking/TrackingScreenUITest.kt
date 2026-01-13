@@ -32,9 +32,12 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+/** Instrumented UI test for [TrackingScreen].
+ * Verifies that the UI correctly reacts to different tracking states and user interactions. */
+
 @ExperimentalCoroutinesApi
 @OptIn(ExperimentalPermissionsApi::class)
-class TrackingScreenTest {
+class TrackingScreenUITest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -45,34 +48,33 @@ class TrackingScreenTest {
         Manifest.permission.ACCESS_COARSE_LOCATION
     )
 
-    // Mocks for the Composables and ViewModel
     private val mockNavController = mockk<NavController>(relaxed = true)
     private val mockPermissionsState = mockk<MultiplePermissionsState>(relaxed = true)
     private val mockTripDao = mockk<TripDao>(relaxed = true)
     private val mockApplication = mockk<Application>(relaxed = true)
-
-    // Fake flows to control state observed by the ViewModel
     private val isTrackingFlow = MutableStateFlow(false)
 
     @Before
     fun setup() {
-        // Firebase anonymous login used in VM init
+        // Mocking static Android/Firebase components
         mockkStatic(FirebaseAuth::class)
         every { FirebaseAuth.getInstance() } returns mockk(relaxed = true)
 
-        // Provide fake service state to the VM
+        // Mocking the tracking service state provided to the ViewModel
         mockkObject(TrackingService.Companion)
-        every { TrackingService.isTracking } returns isTrackingFlow
-        every { TrackingService.pathPoints } returns MutableStateFlow(emptyList())
+        every { TrackingService.Companion.isTracking } returns isTrackingFlow
+        every { TrackingService.Companion.pathPoints } returns MutableStateFlow(emptyList())
     }
 
+    /** UI-01: Verifies that the "Start Tracking Route" button is displayed when
+     * the system is not currently tracking a trip. */
     @Test
     fun whenNotTracking_showsStartButton() {
-        // Arrange
+        // Arrange - Set state to inactive tracking
         isTrackingFlow.value = false
         val viewModel = TrackingViewModel(mockTripDao, mockApplication)
 
-        // Act
+        // Act - Render the tracking screen content
         composeTestRule.setContent {
             TrackingScreenContent(
                 viewModel = viewModel,
@@ -81,18 +83,20 @@ class TrackingScreenTest {
             )
         }
 
-        // Assert
+        // Assert - Confirm start button is visible and stop button is gone
         composeTestRule.onNodeWithText("Start Tracking Route").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Stop Tracking").assertCountEquals(0)
     }
 
+    /** UI-02: Verifies that the "Stop Tracking" button is displayed when
+     * a tracking session is active. */
     @Test
     fun whenTracking_showsStopButton() {
-        // Arrange
+        // Arrange - Set state to active tracking
         isTrackingFlow.value = true
         val viewModel = TrackingViewModel(mockTripDao, mockApplication)
 
-        // Act
+        // Act - Render the tracking screen content
         composeTestRule.setContent {
             TrackingScreenContent(
                 viewModel = viewModel,
@@ -101,23 +105,23 @@ class TrackingScreenTest {
             )
         }
 
-        // Assert
+        // Assert - Confirm stop button is visible and start button is gone
         composeTestRule.onNodeWithText("Stop Tracking").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Start Tracking Route").assertCountEquals(0)
     }
 
+    /** UI-03: Verifies that clicking start and stop buttons triggers the expected
+     * ViewModel functions and navigation actions. */
     @Test
-    fun startAndStopButtons_triggerCorrectViewModelAndNavigationCalls() {
-        // ARRANGE
-        // Use a spy to both execute the real VM logic and verify calls to it
+    fun startAndStopButtons_triggerCalls() {
+        // Arrange - Prepare a ViewModel spy and capture navigation routes
         val viewModel = spyk(TrackingViewModel(mockTripDao, mockApplication))
         every { mockPermissionsState.allPermissionsGranted } returns true
-
         val routeSlot = slot<String>()
         every { mockNavController.navigate(capture(routeSlot)) } just runs
 
-        // ACT 1: Start Tracking
-        isTrackingFlow.value = false // Ensure we are in the "not tracking" state
+        // Start Tracking phase
+        isTrackingFlow.value = false
         composeTestRule.setContent {
             TrackingScreenContent(
                 viewModel = viewModel,
@@ -125,21 +129,22 @@ class TrackingScreenTest {
                 permissionState = mockPermissionsState
             )
         }
+        
+        // Act 1 - Perform click on start button
         composeTestRule.onNodeWithText("Start Tracking Route").performClick()
 
-        // VERIFY 1
+        // Verify 1 - Confirm startTracking was called
         verify { viewModel.startTracking() }
 
-        // ACT 2: Stop Tracking
-        // Simulate the state change that would occur when tracking starts
+        // Stop Tracking phase
         isTrackingFlow.value = true
-        // Mock the return value of stopTracking before it is called
         val testTripId = "test-trip-123"
         every { viewModel.stopTracking() } returns testTripId
 
+        // Act 2 - Perform click on stop button
         composeTestRule.onNodeWithText("Stop Tracking").performClick()
 
-        // VERIFY 2
+        // Verify 2 - Confirm stopTracking was called and navigation triggered to correct route
         verify { viewModel.stopTracking() }
         assertEquals(Screen.SaveTrip.createRoute(testTripId), routeSlot.captured)
     }

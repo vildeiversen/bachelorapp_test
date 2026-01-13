@@ -15,17 +15,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+/** Instrumented UI test for [ConsentScreen].
+ * Verifies the interaction logic of the consent screen, ensuring legal requirements are met. */
+
 @ExperimentalCoroutinesApi
-class ConsentScreenTest {
+class ConsentScreenUITest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    /** UI-04: Verifies that the "Accept & Continue" button is only enabled
+     * after the user has checked the agreement checkbox. */
     @Test
-    fun acceptButton_isEnabled_only_when_checkbox_is_checked() {
-        // ACT - Launch the ConsentScreen in a test environment.
+    fun acceptButton_isEnabled_onlyWhenChecked() {
+        // Act - Launch the ConsentScreen in a test environment with local state
         composeTestRule.setContent {
-            // We use a local mutable state to simulate the checkbox behavior.
             var isChecked by remember { mutableStateOf(false) }
 
             ConsentScreen(
@@ -36,23 +40,24 @@ class ConsentScreenTest {
             )
         }
 
-        // FIND the nodes we need to interact with.
         val acceptButton = composeTestRule.onNodeWithText("Accept & Continue")
         val agreeCheckbox = composeTestRule.onNodeWithTag("agree_checkbox")
 
-        // ASSERT 1 - Initially, the button should be disabled.
+        // Assert 1 - Button should be disabled initially
         acceptButton.assertIsNotEnabled()
 
-        // ACT 2 - Simulate a user click on the checkbox itself.
+        // Act 2 - User clicks the checkbox
         agreeCheckbox.performClick()
 
-        // ASSERT 2 - After clicking, the button should now be enabled.
+        // Assert 2 - Button should now be enabled
         acceptButton.assertIsEnabled()
     }
 
+    /** UI-05: Verifies that clicking the "Accept & Continue" button correctly
+     * triggers the onAccept callback. */
     @Test
-    fun acceptButton_triggers_onAccept_action() {
-        // ARRANGE - A flag to verify the lambda is called.
+    fun acceptButtonTriggers_onAccept_action() {
+        // Arrange - Setup a flag to track if the callback is triggered
         var onAcceptCalled = false
 
         composeTestRule.setContent {
@@ -61,7 +66,7 @@ class ConsentScreenTest {
             ConsentScreen(
                 agreeChecked = isChecked,
                 onAgreeChange = { isChecked = it },
-                onAccept = { onAcceptCalled = true }, // Set the flag when onAccept is called
+                onAccept = { onAcceptCalled = true },
                 onDecline = { }
             )
         }
@@ -69,17 +74,19 @@ class ConsentScreenTest {
         val acceptButton = composeTestRule.onNodeWithText("Accept & Continue")
         val agreeCheckbox = composeTestRule.onNodeWithTag("agree_checkbox")
 
-        // ACT - Click the checkbox, then click the button.
+        // Act - Click the checkbox, then the accept button
         agreeCheckbox.performClick()
         acceptButton.performClick()
 
-        // ASSERT - Verify that the onAccept lambda was executed.
+        // Assert - Verify that the onAccept lambda was executed
         assertTrue("onAccept should have been called", onAcceptCalled)
     }
 
+    /** UI-06: Verifies that clicking the "Decline" button correctly
+     * triggers the onDecline callback. */
     @Test
-    fun declineButton_triggers_onDecline_action() {
-        // ARRANGE - A flag to verify the lambda is called.
+    fun declineButtonTriggers_onDecline_action() {
+        // Arrange - Setup a flag to track if the callback is triggered
         var onDeclineCalled = false
 
         composeTestRule.setContent {
@@ -87,16 +94,16 @@ class ConsentScreenTest {
                 agreeChecked = false,
                 onAgreeChange = { },
                 onAccept = { },
-                onDecline = { onDeclineCalled = true } // Set the flag when onDecline is called
+                onDecline = { onDeclineCalled = true }
             )
         }
 
         val declineButton = composeTestRule.onNodeWithText("Decline")
 
-        // ACT - Click the decline button.
+        // Act - Click the decline button
         declineButton.performClick()
 
-        // ASSERT - Verify that the onDecline lambda was executed.
+        // Assert - Verify that the onDecline lambda was executed
         assertTrue("onDecline should have been called", onDeclineCalled)
     }
 }

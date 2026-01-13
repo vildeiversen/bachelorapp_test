@@ -1,4 +1,4 @@
-package no.oslomet.travelbehavior
+package no.oslomet.travelbehavior.ui.screens.tracking
 
 import android.app.Application
 import android.content.Intent
@@ -26,13 +26,14 @@ import kotlinx.coroutines.test.setMain
 import no.oslomet.travelbehavior.data.TripDao
 import no.oslomet.travelbehavior.data.TripManager
 import no.oslomet.travelbehavior.location.TrackingService
-import no.oslomet.travelbehavior.ui.screens.tracking.TrackingUiState
-import no.oslomet.travelbehavior.ui.screens.tracking.TrackingViewModel
 import org.junit.After
-import org.junit.Assert.assertEquals
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+
+/** Unit tests for the [TrackingViewModel].
+ * These tests run locally on the JVM and use MockK to isolate the ViewModel from Android dependencies. */
 
 @ExperimentalCoroutinesApi
 class TrackingViewModelUnitTest {
@@ -68,8 +69,8 @@ class TrackingViewModelUnitTest {
 
         // Mock the companion object flows in TrackingService
         mockkObject(TrackingService.Companion)
-        every { TrackingService.isTracking } returns isTrackingFlow
-        every { TrackingService.pathPoints } returns pathPointsFlow
+        every { TrackingService.Companion.isTracking } returns isTrackingFlow
+        every { TrackingService.Companion.pathPoints } returns pathPointsFlow
 
         // Mock Intent constructor so real Android setAction() is never called
         mockkConstructor(Intent::class)
@@ -89,79 +90,88 @@ class TrackingViewModelUnitTest {
         unmockkAll()
     }
 
+    /** UT-01: Verifies that the initial state of the ViewModel is correct. */
     @Test
-    fun `initial uiState should be the default state`() = runTest {
+    fun initialStateIsDefault() = runTest {
+        // Compare current state with a default TrackingUiState object
         val expectedState = TrackingUiState()
         val actualState = viewModel.uiState.value
-        assertEquals(expectedState, actualState)
+        Assert.assertEquals(expectedState, actualState)
     }
 
+    /** UT-02: Verifies that starting tracking correctly updates the UI state,
+     * saves the generated trip ID, and triggers the tracking service.*/
     @Test
-    fun `startTracking should update state and save trip id`() = runTest {
+    fun startTrackingUpdatesStateAndSavesTripId() = runTest {
+        // Prepare mocks for service start and ID storage
         every { TripManager.saveTripId(any(), any()) } just runs
         every { application.startService(any()) } returns mockk()
 
+        // Trigger the start action
         viewModel.startTracking()
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Capture the generated trip ID from the state
         val newTripId = viewModel.uiState.value.activeTripId
         val nonNullTripId = requireNotNull(newTripId)
 
-        // Verify we saved the trip id
+        // Verify the ID was persisted and the service was called
         verify { TripManager.saveTripId(application, nonNullTripId) }
-
-        // Verify that a service start was requested (we don't care about the Intent details here)
         verify { application.startService(any()) }
     }
 
+    /** UT-03: Verifies that stopping tracking returns the correct trip ID
+     * and sends the stop action to the tracking service. */
     @Test
-    fun `stopTracking should return trip id and send stop action to service`() = runTest {
+    fun stopTrackingReturnsTripIdAndSendsStopAction() = runTest {
+        // Arrange an active trip ID
         val activeTripId = "test-trip-123"
-
-        // When stopTracking asks TripManager for the id, return this value
         every { TripManager.getTripId(any()) } returns activeTripId
-
-        // We don't care about the real Intent, just that startService is called
         every { application.startService(any()) } returns mockk()
 
-        // Call the function under test
+        // Execute stop tracking
         val returnedId = viewModel.stopTracking()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        // 1) It should return the trip id
-        assertEquals(activeTripId, returnedId)
-
-        // 2) It should read the id from TripManager
+        // Check if the returned ID matches and service intent was sent
+        Assert.assertEquals(activeTripId, returnedId)
         verify { TripManager.getTripId(context = application) }
-
-        // 3) It should request starting the service (with the stop action inside)
         verify { application.startService(any()) }
     }
 
+    /** UT-04: Verifies that the ViewModel correctly restores an ongoing trip
+     * from [TripManager] during initialization. */
     @Test
-    fun `viewModel should restore active trip on init`() = runTest {
+    fun viewModelRestoresActiveTripOnInit() = runTest {
+        // Setup TripManager to return an existing ID
         val activeTripId = "test-trip-123"
         every { TripManager.getTripId(any()) } returns activeTripId
 
+        // Create a new instance of the ViewModel
         val newViewModel = TrackingViewModel(tripDao, application)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(activeTripId, newViewModel.uiState.value.activeTripId)
+        // Verify the state reflects the restored ID
+        Assert.assertEquals(activeTripId, newViewModel.uiState.value.activeTripId)
     }
 
+    /** UT-05: Verifies that the ViewModel's UI state reactively updates
+     * when the [TrackingService] state (tracking status and path points) changes. */
     @Test
-    fun `uiState should update when TrackingService state changes`() = runTest {
-        assertEquals(false, viewModel.uiState.value.isTracking)
-        assertEquals(emptyList<LatLng>(), viewModel.uiState.value.pathPoints)
+    fun uiStateUpdatesWhenTrackingServiceStateChanges() = runTest {
+        // Check baseline state
+        Assert.assertEquals(false, viewModel.uiState.value.isTracking)
+        Assert.assertEquals(emptyList<LatLng>(), viewModel.uiState.value.pathPoints)
 
+        // Simulate service starting tracking
         isTrackingFlow.value = true
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals(true, viewModel.uiState.value.isTracking)
+        Assert.assertEquals(true, viewModel.uiState.value.isTracking)
 
+        // Simulate arrival of new location points
         val testPoints = listOf(LatLng(1.0, 1.0), LatLng(2.0, 2.0))
         pathPointsFlow.value = testPoints
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals(testPoints, viewModel.uiState.value.pathPoints)
+        Assert.assertEquals(testPoints, viewModel.uiState.value.pathPoints)
     }
 }
-

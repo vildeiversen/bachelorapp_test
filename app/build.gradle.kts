@@ -107,9 +107,28 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.6.1")
     androidTestImplementation("androidx.arch.core:core-testing:2.2.0")
     androidTestImplementation("androidx.test:rules:1.5.0") // Added for GrantPermissionRule
-
-
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // Declare the BOM once and reuse it in all configurations
+    val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
+
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+    debugImplementation(composeBom) // for ui-test-manifest
+
+    // Compose artifacts WITHOUT versions (the BOM supplies versions)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+
+    // Tests
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // (keep your other deps as-is)
 }
