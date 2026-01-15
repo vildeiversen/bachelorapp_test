@@ -72,9 +72,9 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
     fun startTracking() {
         val localTripId = UUID.randomUUID().toString()
-        Log.d("TrackingViewModel", "Starting new LOCAL-ONLY trip with ID: $localTripId")
+        Log.i("Tracking", "User started a new trip. Local ID: $localTripId")
         TripManager.saveTripId(getApplication(), localTripId)
-        
+
         // FIKS: Lagrer midnatt-ankerpunktet FØRST for å garantere at det er tilgjengelig.
         TripManager.saveTripStartDayMidnight(getApplication())
         // FIKS: Lagrer deretter den relative starttiden for turen.
@@ -87,6 +87,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
 
     fun stopTracking(): String? {
         val tripId = TripManager.getTripId(getApplication())
+        Log.i("Tracking", "User stopped trip ID: $tripId")
         TripManager.saveTripEndTime(getApplication())
         sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
         return tripId

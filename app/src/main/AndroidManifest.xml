@@ -29,7 +29,7 @@
         <!-- Legg inn din Google Maps API-nøkkel her -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCGRfWqGznlQfLPsVWEE3DGddlwTTPR7Ss" />
+            android:value="AIzaSyCxRAmrrnCPvrfsjNbqAt1uCMH6dkdewS4" />
 
         <activity
             android:name=".MainActivity"
