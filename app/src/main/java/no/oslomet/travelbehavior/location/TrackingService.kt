@@ -138,7 +138,7 @@ class TrackingService : LifecycleService() {
             .setOngoing(true)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("Travel Behavior")
-            .setContentText("Sporer din reise...")
+            .setContentText("Tracking location...")
 
         startForeground(NOTIFICATION_ID, notificationBuilder.build())
     }
