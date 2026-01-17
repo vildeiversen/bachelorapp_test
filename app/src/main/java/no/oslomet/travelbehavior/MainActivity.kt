@@ -101,7 +101,7 @@ fun AppShell() {
         },
         bottomBar = {
             if (showBottomBar) {
-                BottomNavigationBar(navController = navController)
+                BottomNavigationBar(navController = navController, trackingViewModel = trackingVm)
             }
         }
     ) { innerPadding ->
