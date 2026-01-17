@@ -164,6 +164,7 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     fun deleteTrip(localTripId: String) {
         viewModelScope.launch {
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
+            trackPointDao.deleteByTripId(localTripId)
             tripDao.deleteById(localTripId)
 
             // FIKS: Rengjør ALLE midlertidige verdier, inkludert midnatt-ankerpunktet.
