@@ -71,6 +71,12 @@ class TrackingViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun startTracking() {
+        // Prevent starting a new trip if one is pending confirmation
+        if (_uiState.value.activeTripId != null && !_uiState.value.isTracking) {
+            Toast.makeText(getApplication(), "You must save or delete the previous trip first.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         val localTripId = UUID.randomUUID().toString()
         Log.i("Tracking", "User started a new trip. Local ID: $localTripId")
         TripManager.saveTripId(getApplication(), localTripId)
