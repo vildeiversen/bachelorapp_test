@@ -55,6 +55,7 @@ class TrackingService : LifecycleService() {
         intent?.let {
             when (it.action) {
                 ACTION_START_SERVICE -> {
+                    Log.i("TrackingService", "Tracking service started.")
                     // FIKS: Ansvaret for å lagre starttid er flyttet til ViewModel.
                     startForegroundService()
                     _isTracking.value = true
@@ -69,6 +70,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun stopService() {
+        Log.i("TrackingService", "Tracking service stopped.")
         _isTracking.value = false
         fusedLocationProviderClient.removeLocationUpdates(locationCallback)
         stopForeground(true)
@@ -78,8 +80,8 @@ class TrackingService : LifecycleService() {
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         val request = LocationRequest.create().apply {
-            interval = 2000L
-            fastestInterval = 2000L
+            interval = 8000L
+            fastestInterval = 4000L
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
         fusedLocationProviderClient.requestLocationUpdates(
@@ -119,6 +121,7 @@ class TrackingService : LifecycleService() {
                                 acc = location.accuracy
                             )
                         )
+                        Log.d("TrackingService", "New TrackPoint saved locally for trip ID: $tripId")
                     }
                 }
             }
