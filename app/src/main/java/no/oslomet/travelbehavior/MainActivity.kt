@@ -30,15 +30,16 @@ import no.oslomet.travelbehavior.ui.screens.tracking.TrackingScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TrackingViewModel
 import no.oslomet.travelbehavior.ui.theme.BachelorAppH2025Theme
 import android.app.Application
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.currentBackStackEntryAsState
-import no.oslomet.travelbehavior.data.AppDatabase
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentScreen
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentViewModel
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
+import no.oslomet.travelbehavior.ui.screens.tracking.TripSummaryScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -57,10 +58,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppShell() {
     val navController = rememberNavController()
-
     val app = (LocalContext.current.applicationContext as Application)
+
+    // Henter ViewModel-ene vi trenger for å vite status i appen
     val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
+    val trackingVm: TrackingViewModel = viewModel() // Vi trenger denne for å vite isTracking status
+
     val ui = consentVm.ui.collectAsState().value
+    val trackingState by trackingVm.uiState.collectAsState()
 
     val start = when {
         ui.isLoading       -> Screen.Splash.route
@@ -70,13 +75,29 @@ fun AppShell() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // HVA: Dynamisk tittel som nå også sjekker om sporing faktisk er aktiv.
+    // HVORFOR: Gir mer presis feedback til brukeren (MMI).
+    val topBarTitle = when {
+        currentRoute == Screen.Home.route -> "Travel Behaviour"
+        currentRoute == "tracking_screen" -> {
+            if (trackingState.isTracking) "Currently Tracking Route" else "Travel Behaviour"
+        }
+        currentRoute?.startsWith(Screen.SaveTrip.route.split("/")[0]) == true -> "Route Summary"
+        currentRoute == Screen.Settings.route -> "Settings"
+        currentRoute == Screen.ConsentReview.route -> "View Consent"
+        else -> "Travel Behaviour"
+    }
+
     val showBottomBar = currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Travel Behaviour") }
-            )
+            if (currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route) {
+                TopAppBar(
+                    title = { Text(topBarTitle) }
+                )
+            }
         },
         bottomBar = {
             if (showBottomBar) {
@@ -102,7 +123,7 @@ fun AppShell() {
                             navController.navigate(Screen.Home.route) { popUpTo(0) }
                         }
                     },
-                    onDecline = { /* Show a message??? */ }
+                    onDecline = { }
                 )
             }
 
@@ -120,38 +141,26 @@ fun AppShell() {
                 route = Screen.Tracking.route
             ) {
                 composable("tracking_screen") { backStackEntry ->
-                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController, app)
-                    TrackingScreen(navController = navController, viewModel = sharedViewModel)
+                    // Vi gjenbruker trackingVm som vi allerede har hentet øverst
+                    TrackingScreen(navController = navController, viewModel = trackingVm)
                 }
 
                 composable(
                     route = Screen.SaveTrip.route,
                     arguments = listOf(navArgument("tripId") { type = NavType.StringType })
                 ) { backStackEntry ->
-                    val sharedViewModel = backStackEntry.sharedViewModel<TrackingViewModel>(navController, app)
                     val tripId = backStackEntry.arguments?.getString("tripId")
-                    SaveTripScreen(navController = navController, tripId = tripId, viewModel = sharedViewModel)
+                    SaveTripScreen(navController = navController, tripId = tripId, viewModel = trackingVm)
+                }
+
+                composable(
+                    route = "trip_summary/{tripId}",
+                    arguments = listOf(navArgument("tripId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val tripId = backStackEntry.arguments?.getString("tripId")
+                    TripSummaryScreen(navController = navController, tripId = tripId, viewModel = trackingVm)
                 }
             }
         }
     }
-}
-
-@Composable
-inline fun <reified T : ViewModel> NavBackStackEntry.sharedViewModel(navController: NavController, application: Application): T {
-    val navGraphRoute = destination.parent?.route ?: return viewModel()
-    val parentEntry = remember(this) {
-        navController.getBackStackEntry(navGraphRoute)
-    }
-
-    // REFACTOR: Explicitly create and provide the TripDao to the factory.
-    val factory = when (T::class) {
-        TrackingViewModel::class -> {
-            val tripDao = AppDatabase.getInstance(application).tripDao()
-            TrackingViewModel.provideFactory(application, tripDao)
-        }
-        // This generic fallback might be too clever; could be simplified if only used for TrackingViewModel
-        else -> viewModel<T>(parentEntry).javaClass.getMethod("provideFactory", Application::class.java).invoke(null, application)
-    }
-    return viewModel(parentEntry, factory = factory as androidx.lifecycle.ViewModelProvider.Factory)
 }

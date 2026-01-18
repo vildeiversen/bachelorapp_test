@@ -5,8 +5,6 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
 import androidx.work.NetworkType
@@ -33,12 +31,17 @@ data class TrackingUiState(
     val isSaving: Boolean = false
 )
 
-class TrackingViewModel(val tripDao: TripDao, application: Application) : AndroidViewModel(application) {
+class TrackingViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val tripDao: TripDao = AppDatabase.getInstance(getApplication()).tripDao()
+    private val trackPointDao: TrackPointDao = AppDatabase.getInstance(getApplication()).trackPointDao()
     private val workManager = WorkManager.getInstance(application)
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
+
+    private val _trackPoints = MutableStateFlow<List<TrackPoint>>(emptyList())
+    val trackPoints: StateFlow<List<TrackPoint>> = _trackPoints.asStateFlow()
 
     init {
         ensureFirebaseLogin()
@@ -53,6 +56,12 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
         }.launchIn(viewModelScope)
     }
 
+    fun loadTrackPointsForTrip(tripId: String) {
+        viewModelScope.launch {
+            _trackPoints.value = trackPointDao.getTrackPointsForTrip(tripId)
+        }
+    }
+
     private fun restoreTripIdIfActive() {
         val activeTripId = TripManager.getTripId(getApplication())
         if (activeTripId != null) {
@@ -65,6 +74,12 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
         val localTripId = UUID.randomUUID().toString()
         Log.d("TrackingViewModel", "Starting new LOCAL-ONLY trip with ID: $localTripId")
         TripManager.saveTripId(getApplication(), localTripId)
+        
+        // FIKS: Lagrer midnatt-ankerpunktet FØRST for å garantere at det er tilgjengelig.
+        TripManager.saveTripStartDayMidnight(getApplication())
+        // FIKS: Lagrer deretter den relative starttiden for turen.
+        TripManager.saveTripStartTime(getApplication())
+
         _uiState.update { it.copy(activeTripId = localTripId) }
 
         sendCommandToService(TrackingService.ACTION_START_SERVICE)
@@ -72,6 +87,7 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
 
     fun stopTracking(): String? {
         val tripId = TripManager.getTripId(getApplication())
+        TripManager.saveTripEndTime(getApplication())
         sendCommandToService(TrackingService.ACTION_STOP_SERVICE)
         return tripId
     }
@@ -87,9 +103,18 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
+                val startTime = TripManager.getTripStartTime(getApplication())
+                val endTime = TripManager.getTripEndTime(getApplication())
+                val midnight = TripManager.getTripStartDayMidnight(getApplication())
+
+                // FIKS: Fallback for å beregne relativ tid dersom den mangler.
+                // Dette forhindrer at absolutte timestamps (System.currentTimeMillis) blandes med relative.
+                val relativeNow = if (midnight != 0L) System.currentTimeMillis() - midnight else 0L
+
                 val trip = Trip(
                     id = localTripId,
-                    endTimestamp = System.currentTimeMillis(),
+                    startTimestamp = if (startTime != 0L) startTime else relativeNow,
+                    endTimestamp = if (endTime != 0L) endTime else relativeNow,
                     overallRating = tripRating,
                     delayRating = delayRating,
                     delayMinutes = delayMinutes,
@@ -98,16 +123,20 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
                 )
                 tripDao.insert(trip)
                 Log.d("TrackingViewModel", "Saved trip locally with ratings. Trip ID: $localTripId")
-                Toast.makeText(getApplication(), "Turen er lagret!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(getApplication(), "Trip saved successfully!", Toast.LENGTH_SHORT).show()
 
                 scheduleTripSync()
 
+                // FIKS: Rengjør ALLE midlertidige verdier, inkludert midnatt-ankerpunktet.
                 TripManager.clearTripId(getApplication())
+                TripManager.clearTripStartTime(getApplication())
+                TripManager.clearTripEndTime(getApplication())
+                TripManager.clearTripStartDayMidnight(getApplication())
                 _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
 
             } catch (e: Exception) {
                 Log.e("TrackingViewModel", "Failed to save trip locally. Error: ${e.message}", e)
-                Toast.makeText(getApplication(), "Feil: Kunne ikke lagre turen", Toast.LENGTH_LONG).show()
+                Toast.makeText(getApplication(), "Error: The trip could not be saved.", Toast.LENGTH_LONG).show()
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -129,9 +158,14 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
         viewModelScope.launch {
             Log.d("TrackingViewModel", "User chose to DELETE. Deleting local data for ID: $localTripId")
             tripDao.deleteById(localTripId)
+
+            // FIKS: Rengjør ALLE midlertidige verdier, inkludert midnatt-ankerpunktet.
             TripManager.clearTripId(getApplication())
+            TripManager.clearTripStartTime(getApplication())
+            TripManager.clearTripEndTime(getApplication())
+            TripManager.clearTripStartDayMidnight(getApplication())
             _uiState.update { it.copy(activeTripId = null, pathPoints = emptyList()) }
-            Toast.makeText(getApplication(), "Turen ble slettet", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(), "Trip has been deleted.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -139,22 +173,6 @@ class TrackingViewModel(val tripDao: TripDao, application: Application) : Androi
         val auth = FirebaseAuth.getInstance()
         if (auth.currentUser == null) {
             auth.signInAnonymously()
-        }
-    }
-
-    companion object {
-        // REFACTOR: Removed the default parameter that was causing the test to crash.
-        fun provideFactory(
-            application: Application,
-            tripDao: TripDao
-        ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                if (modelClass.isAssignableFrom(TrackingViewModel::class.java)) {
-                    return TrackingViewModel(tripDao, application) as T
-                }
-                throw IllegalArgumentException("Unknown ViewModel class")
-            }
         }
     }
 }

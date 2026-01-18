@@ -16,15 +16,13 @@ fun SettingsScreen(
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(text = "Settings", style = MaterialTheme.typography.headlineSmall)
+            Text(text = "Privacy Settings", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(24.dp))
 
-            Text(text = "Privacy", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
 
             // New: navigate to a read-only consent review screen
             Button(onClick = { navController.navigate(Screen.ConsentReview.route) }) {
-                Text("View Consent Settings")
+                Text("View Consent Here")
             }
         }
     }

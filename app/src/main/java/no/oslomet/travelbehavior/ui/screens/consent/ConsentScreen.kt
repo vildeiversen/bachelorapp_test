@@ -1,7 +1,6 @@
 package no.oslomet.travelbehavior.ui.screens.consent
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 
 @Composable
 fun ConsentScreen(
@@ -27,9 +27,9 @@ fun ConsentScreen(
     fun openExternal(uri: String) {
         val intent = when {
             uri.startsWith("mailto:", ignoreCase = true) ->
-                Intent(Intent.ACTION_SENDTO, Uri.parse(uri))
+                Intent(Intent.ACTION_SENDTO, uri.toUri())
             else ->
-                Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                Intent(Intent.ACTION_VIEW, uri.toUri())
         }
         ctx.startActivity(intent)
     }
@@ -37,7 +37,7 @@ fun ConsentScreen(
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(20.dp)) {
             Text(
-                "Consent to the collection and use of travel data",
+                "Consent to the Collection and Use of Travel Data",
                 style = MaterialTheme.typography.headlineMedium
             )
             Spacer(Modifier.height(8.dp))
