@@ -23,6 +23,8 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import no.oslomet.travelbehavior.data.AppDatabase
+import no.oslomet.travelbehavior.data.TrackPointDao
 import no.oslomet.travelbehavior.data.TripDao
 import no.oslomet.travelbehavior.data.TripManager
 import no.oslomet.travelbehavior.location.TrackingService
@@ -44,6 +46,8 @@ class TrackingViewModelUnitTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var tripDao: TripDao
+    private lateinit var trackPointDao: TrackPointDao
+    private lateinit var appDatabase: AppDatabase
     private lateinit var application: Application
     private lateinit var viewModel: TrackingViewModel
 
@@ -62,10 +66,25 @@ class TrackingViewModelUnitTest {
         every { WorkManager.getInstance(any()) } returns mockk(relaxed = true)
         every { FirebaseAuth.getInstance() } returns mockk(relaxed = true)
         every { Log.d(any(), any()) } returns 0
+        every { Log.i(any(), any()) } returns 0
 
         // Mock Kotlin singletons / objects
         mockkObject(TripManager)
         every { TripManager.getTripId(any()) } returns null
+        every { TripManager.saveTripId(any(), any()) } just runs
+        every { TripManager.saveTripStartDayMidnight(any()) } just runs
+        every { TripManager.saveTripStartTime(any()) } just runs
+        every { TripManager.saveTripEndTime(any()) } just runs
+
+        // Mock AppDatabase and DAOs
+        tripDao = mockk(relaxed = true)
+        trackPointDao = mockk(relaxed = true)
+        appDatabase = mockk(relaxed = true)
+        every { appDatabase.tripDao() } returns tripDao
+        every { appDatabase.trackPointDao() } returns trackPointDao
+        
+        mockkObject(AppDatabase)
+        every { AppDatabase.getInstance(any()) } returns appDatabase
 
         // Mock the companion object flows in TrackingService
         mockkObject(TrackingService.Companion)
@@ -77,11 +96,10 @@ class TrackingViewModelUnitTest {
         every { anyConstructed<Intent>().setAction(any()) } returns mockk(relaxed = true)
 
         // Relaxed mocks for other dependencies
-        tripDao = mockk(relaxed = true)
         application = mockk(relaxed = true)
 
         // ViewModel with mocked dependencies
-        viewModel = TrackingViewModel(tripDao, application)
+        viewModel = TrackingViewModel(application)
     }
 
     @After
@@ -104,7 +122,6 @@ class TrackingViewModelUnitTest {
     @Test
     fun startTrackingUpdatesStateAndSavesTripId() = runTest {
         // Prepare mocks for service start and ID storage
-        every { TripManager.saveTripId(any(), any()) } just runs
         every { application.startService(any()) } returns mockk()
 
         // Trigger the start action
@@ -117,6 +134,8 @@ class TrackingViewModelUnitTest {
 
         // Verify the ID was persisted and the service was called
         verify { TripManager.saveTripId(application, nonNullTripId) }
+        verify { TripManager.saveTripStartDayMidnight(application) }
+        verify { TripManager.saveTripStartTime(application) }
         verify { application.startService(any()) }
     }
 
@@ -136,6 +155,7 @@ class TrackingViewModelUnitTest {
         // Check if the returned ID matches and service intent was sent
         Assert.assertEquals(activeTripId, returnedId)
         verify { TripManager.getTripId(context = application) }
+        verify { TripManager.saveTripEndTime(application) }
         verify { application.startService(any()) }
     }
 
@@ -148,7 +168,7 @@ class TrackingViewModelUnitTest {
         every { TripManager.getTripId(any()) } returns activeTripId
 
         // Create a new instance of the ViewModel
-        val newViewModel = TrackingViewModel(tripDao, application)
+        val newViewModel = TrackingViewModel(application)
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Verify the state reflects the restored ID

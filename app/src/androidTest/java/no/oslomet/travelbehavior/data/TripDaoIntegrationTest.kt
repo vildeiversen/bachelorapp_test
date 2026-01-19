@@ -16,13 +16,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Instrumented test for the [TripDao].
- * Verifies database operations for reiseøkter (trips) using an in-memory database. */
+ * Verifies database operations for 'reiseøkter' (trips) using an in-memory database. */
 
 @ExperimentalCoroutinesApi
 @RunWith(AndroidJUnit4::class)
 class TripDaoIntegrationTest {
 
     @get:Rule
+    @JvmField
     var instantTaskExecutorRule = InstantTaskExecutorRule()
 
     private lateinit var database: AppDatabase
@@ -48,9 +49,11 @@ class TripDaoIntegrationTest {
     @Test
     fun insertTripAndGetUnsynced() = runTest {
         // Create a test trip that is not yet synced
+        val now = System.currentTimeMillis()
         val unsyncedTrip = Trip(
             id = "test-trip-1",
-            endTimestamp = System.currentTimeMillis(),
+            startTimestamp = now - 10000,
+            endTimestamp = now,
             overallRating = null,
             delayRating = null,
             delayMinutes = null,
@@ -72,9 +75,11 @@ class TripDaoIntegrationTest {
     @Test
     fun markAsSynced_removesTripFromUnsyncedList() = runTest {
         // Insert a trip that is initially not synced
+        val now = System.currentTimeMillis()
         val trip = Trip(
             id = "test-trip-2",
-            endTimestamp = System.currentTimeMillis(),
+            startTimestamp = now - 10000,
+            endTimestamp = now,
             overallRating = null,
             delayRating = null,
             delayMinutes = null,
@@ -97,9 +102,11 @@ class TripDaoIntegrationTest {
     @Test
     fun deleteById_removesTripFromDatabase() = runTest {
         // Insert a test trip
+        val now = System.currentTimeMillis()
         val trip = Trip(
             id = "test-trip-3",
-            endTimestamp = System.currentTimeMillis(),
+            startTimestamp = now - 10000,
+            endTimestamp = now,
             overallRating = null,
             delayRating = null,
             delayMinutes = null,

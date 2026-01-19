@@ -13,7 +13,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.Date
 
 /** Instrumented test for the [TrackPointDao].
  * Verifies that location points are correctly persisted and linked to their respective trips. */
@@ -23,6 +22,7 @@ import java.util.Date
 class TrackPointDaoIntegrationTest {
 
     @get:Rule
+    @JvmField
     var instantTaskExecutorRule = InstantTaskExecutorRule()
 
     private lateinit var database: AppDatabase
@@ -49,10 +49,11 @@ class TrackPointDaoIntegrationTest {
      * retrieved for a specific trip, maintaining the parent-child relationship. */
     @Test
     fun insertAndGetTrackPointsForTrip() = runTest {
-        // Arrange - Insert a parent trip first to satisfy foreign key constraints
+        // Arrange - Insert a parent trip first
         val trip = Trip(
             id = "test-trip-1",
-            endTimestamp = 0L,
+            startTimestamp = 1000L,
+            endTimestamp = 2000L,
             overallRating = 5,
             delayRating = 1,
             delayMinutes = 0,
@@ -61,9 +62,9 @@ class TrackPointDaoIntegrationTest {
         )
         tripDao.insert(trip)
 
-        // Arrange - Create coordinate points for this trip
-        val point1 = TrackPoint(tripId = trip.id, lat = 1.0, lon = 1.0, acc = 10f, timestamp = Date(1000L))
-        val point2 = TrackPoint(tripId = trip.id, lat = 2.0, lon = 2.0, acc = 10f, timestamp = Date(2000L))
+        // Arrange - Create coordinate points for this trip (Using Long for timestamp)
+        val point1 = TrackPoint(tripId = trip.id, lat = 1.0, lon = 1.0, acc = 10f, timestamp = 1000L)
+        val point2 = TrackPoint(tripId = trip.id, lat = 2.0, lon = 2.0, acc = 10f, timestamp = 2000L)
 
         // Act - Insert the track points into the database
         trackPointDao.insert(point1)
@@ -74,6 +75,7 @@ class TrackPointDaoIntegrationTest {
 
         // Assert - Verify that both points were retrieved correctly with auto-generated IDs
         assertEquals(2, retrievedPoints.size)
+        // Note: Room auto-generates IDs starting from 1 in an empty DB
         assertEquals(point1.copy(id = 1), retrievedPoints[0])
         assertEquals(point2.copy(id = 2), retrievedPoints[1])
     }

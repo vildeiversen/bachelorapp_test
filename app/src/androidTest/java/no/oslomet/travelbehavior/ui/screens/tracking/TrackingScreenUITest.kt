@@ -21,12 +21,16 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import no.oslomet.travelbehavior.data.AppDatabase
 import no.oslomet.travelbehavior.data.TripDao
+import no.oslomet.travelbehavior.data.TripManager
 import no.oslomet.travelbehavior.location.TrackingService
 import no.oslomet.travelbehavior.ui.navigation.Screen
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -50,7 +54,6 @@ class TrackingScreenUITest {
 
     private val mockNavController = mockk<NavController>(relaxed = true)
     private val mockPermissionsState = mockk<MultiplePermissionsState>(relaxed = true)
-    private val mockTripDao = mockk<TripDao>(relaxed = true)
     private val mockApplication = mockk<Application>(relaxed = true)
     private val isTrackingFlow = MutableStateFlow(false)
 
@@ -60,10 +63,30 @@ class TrackingScreenUITest {
         mockkStatic(FirebaseAuth::class)
         every { FirebaseAuth.getInstance() } returns mockk(relaxed = true)
 
+        // Mock TripManager and AppDatabase since ViewModel uses them internally
+        mockkObject(TripManager)
+        every { TripManager.getTripId(any()) } returns null
+        every { TripManager.saveTripId(any(), any()) } just runs
+        every { TripManager.saveTripStartDayMidnight(any()) } just runs
+        every { TripManager.saveTripStartTime(any()) } just runs
+
+        val mockDb = mockk<AppDatabase>(relaxed = true)
+        val mockTripDao = mockk<TripDao>(relaxed = true)
+        every { mockDb.tripDao() } returns mockTripDao
+        every { mockDb.trackPointDao() } returns mockk(relaxed = true)
+        
+        mockkObject(AppDatabase)
+        every { AppDatabase.getInstance(any()) } returns mockDb
+
         // Mocking the tracking service state provided to the ViewModel
         mockkObject(TrackingService.Companion)
         every { TrackingService.Companion.isTracking } returns isTrackingFlow
         every { TrackingService.Companion.pathPoints } returns MutableStateFlow(emptyList())
+    }
+
+    @After
+    fun tearDown() {
+        unmockkAll()
     }
 
     /** UI-01: Verifies that the "Start Tracking Route" button is displayed when
@@ -72,7 +95,7 @@ class TrackingScreenUITest {
     fun whenNotTracking_showsStartButton() {
         // Arrange - Set state to inactive tracking
         isTrackingFlow.value = false
-        val viewModel = TrackingViewModel(mockTripDao, mockApplication)
+        val viewModel = TrackingViewModel(mockApplication)
 
         // Act - Render the tracking screen content
         composeTestRule.setContent {
@@ -94,7 +117,7 @@ class TrackingScreenUITest {
     fun whenTracking_showsStopButton() {
         // Arrange - Set state to active tracking
         isTrackingFlow.value = true
-        val viewModel = TrackingViewModel(mockTripDao, mockApplication)
+        val viewModel = TrackingViewModel(mockApplication)
 
         // Act - Render the tracking screen content
         composeTestRule.setContent {
@@ -115,7 +138,7 @@ class TrackingScreenUITest {
     @Test
     fun startAndStopButtons_triggerCalls() {
         // Arrange - Prepare a ViewModel spy and capture navigation routes
-        val viewModel = spyk(TrackingViewModel(mockTripDao, mockApplication))
+        val viewModel = spyk(TrackingViewModel(mockApplication))
         every { mockPermissionsState.allPermissionsGranted } returns true
         val routeSlot = slot<String>()
         every { mockNavController.navigate(capture(routeSlot)) } just runs
