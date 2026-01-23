@@ -41,6 +41,10 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 
+/**
+ * Screen where users can review their finished trip, provide feedback (ratings),
+ * and choose to save or delete the recorded data.
+ */
 @Composable
 fun SaveTripScreen(
     navController: NavController,
@@ -50,6 +54,7 @@ fun SaveTripScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // Navigate back to the previous screen once the trip is successfully saved or deleted
     LaunchedEffect(uiState.isSaving, uiState.activeTripId) {
         if (!uiState.isSaving && uiState.activeTripId == null) {
             navController.popBackStack()
@@ -61,6 +66,7 @@ fun SaveTripScreen(
         return
     }
 
+    // Confirmation dialog for permanent trip deletion
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -95,16 +101,20 @@ fun SaveTripScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (uiState.isSaving) {
+            // Loading state shown during database and network synchronization
             Text("Saving trip...")
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
         } else {
             Text("Your Trip:", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
+            
+            // Displays a map preview of the recorded path
             TripSummaryPreview(tripId = tripId, viewModel = viewModel, navController = navController)
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Form for user ratings and delay comments
             TripFeedbackSheet {
                 tripRating, delayRating, delayMinutes, delayComment ->
                 viewModel.saveTripAndRatings(tripId, tripRating, delayRating, delayMinutes, delayComment)
@@ -112,12 +122,13 @@ fun SaveTripScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Delete button highlighted with error color
             Button(
                 onClick = { showDeleteDialog = true },
                 enabled = !uiState.isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError // ENDRET: Bruker tema i stedet for hardkodet hvit
+                    contentColor = MaterialTheme.colorScheme.onError
                 )
             ) {
                 Text("Delete Trip")
@@ -126,12 +137,16 @@ fun SaveTripScreen(
     }
 }
 
+/**
+ * Renders a static map preview showing the polyline of the recorded trip.
+ */
 @Composable
 private fun TripSummaryPreview(
     tripId: String,
     viewModel: TrackingViewModel,
     navController: NavController
 ) {
+    // Load track points from the database when the screen or tripId changes
     LaunchedEffect(tripId) {
         viewModel.loadTrackPointsForTrip(tripId)
     }
@@ -143,6 +158,7 @@ private fun TripSummaryPreview(
         position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 10f)
     }
 
+    // Automatically adjust the camera bounds to fit the entire trip route
     LaunchedEffect(latLngs) {
         if (latLngs.size > 1) {
             val boundsBuilder = LatLngBounds.builder()
@@ -164,6 +180,7 @@ private fun TripSummaryPreview(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
                 properties = MapProperties(isMyLocationEnabled = false),
+                // Disable all UI interactions to keep the map as a static preview
                 uiSettings = MapUiSettings(
                     compassEnabled = false,
                     zoomControlsEnabled = false,
@@ -178,6 +195,7 @@ private fun TripSummaryPreview(
                     Polyline(points = latLngs)
                 }
             }
+            // Overlay to handle clicks and navigate to a full trip summary
             Box(
                 modifier = Modifier
                     .fillMaxSize()

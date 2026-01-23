@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,21 +16,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Reusable card that renders the consent text. Use this in both the startup flow and the review screen.
+ * Reusable card that renders the consent text. 
+ * Used in both the initial onboarding and the settings review screen.
  */
 @Composable
 fun ConsentFormCard(
     modifier: Modifier = Modifier,
-    onOpenUrlFallback: (String) -> Unit = {} // only used if UriHandler fails
+    onOpenUrlFallback: (String) -> Unit = {} // Fallback if the URI handler fails
 ) {
     val uriHandler = LocalUriHandler.current
     val text = consentAnnotatedText()
 
     Card(
         modifier = modifier,
-        // HVA: Setter containerColor til surface eksplisitt
-        // HVORFOR: Dette tvinger kortet til å bruke våre grønnfarger fra Theme.kt
-        // i stedet for den lilla standardfargen (surfaceVariant).
+        // Set container color to surface to maintain theme consistency (avoiding default surfaceVariant)
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -39,12 +37,12 @@ fun ConsentFormCard(
         Column(Modifier.padding(16.dp)) {
             ClickableText(
                 text = text,
-                // IMPORTANT: ClickableText doesn't inherit color; set it explicitly
+                // Explicitly set color as ClickableText does not inherit it automatically
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface
                 ),
                 onClick = { offset ->
-                    // Open regular URLs
+                    // Handle regular URL clicks
                     text.getStringAnnotations(tag = "URL", start = offset, end = offset)
                         .firstOrNull()?.let { ann ->
                             val url = ann.item
@@ -54,7 +52,7 @@ fun ConsentFormCard(
                             }
                         }
 
-                    // Open mailto: links
+                    // Handle email link clicks
                     text.getStringAnnotations(tag = "MAIL", start = offset, end = offset)
                         .firstOrNull()?.let { ann ->
                             val mail = ann.item
@@ -69,12 +67,16 @@ fun ConsentFormCard(
     }
 }
 
-/* ------- Content configuration (edit here and both screens update) ------- */
+/* ------- Content configuration (edit here to update all consent views) ------- */
 
 private const val CONTACT_EMAIL: String = "name@email.com"
 private const val RETENTION_DAYS: Int = 180
-private const val PRIVACY_URL: String = "" // set to non-empty to show link
+private const val PRIVACY_URL: String = "" // Optional: link to a full privacy policy
 
+/**
+ * Builds the annotated string containing the consent information,
+ * including clickable links for email and external policies.
+ */
 @Composable
 private fun consentAnnotatedText(): AnnotatedString = buildAnnotatedString {
     appendLine("This app collects anonymous travel data to support research on travel behaviour. Data is used only for research purposes and is handled securely and anonymously.")

@@ -36,10 +36,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import no.oslomet.travelbehavior.ui.theme.TextLight
 
+/**
+ * A feedback for users to rate their trip and report any delays.
+ */
 @Composable
 fun TripFeedbackSheet(
     onSave: (tripRating: Int, delayRating: Int, delayMinutes: Int?, delayComment: String) -> Unit
 ) {
+    // Local states for form inputs
     var tripRating by remember { mutableStateOf(0) }
     var delayRating by remember { mutableStateOf(0) }
     var delayMinutes by remember { mutableStateOf("") }
@@ -56,7 +60,7 @@ fun TripFeedbackSheet(
         Text("Rate your trip", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
-        // TRIP RATING
+        // Overall Trip Rating
         Text("How was your trip?", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
         StarRating(
             rating = tripRating,
@@ -75,9 +79,8 @@ fun TripFeedbackSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // DELAY RATING
-        // HVA: Omvendt rekkefølge på labels (5 = No delay, 1 = Huge delay)
-        // HVORFOR: Følger MMI-prinsippet om "Mental Models" – flere stjerner = mer positivt.
+        // Section: Delay Rating
+        // Note: Higher rating (more stars) indicates a better experience (e.g. no delay).
         Text("How would you rate the delay?", modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
         StarRating(
             rating = delayRating,
@@ -96,6 +99,7 @@ fun TripFeedbackSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Input field for specific delay time in minutes
         OutlinedTextField(
             value = delayMinutes,
             onValueChange = { delayMinutes = it.filter { c -> c.isDigit() } },
@@ -111,6 +115,7 @@ fun TripFeedbackSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Input field for general comments about the delay
         OutlinedTextField(
             value = delayComment,
             onValueChange = { delayComment = it },
@@ -127,6 +132,7 @@ fun TripFeedbackSheet(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Save button: enabled only after an overall trip rating is selected
         Button(
             onClick = {
                 val minutes = delayMinutes.toIntOrNull()
@@ -143,6 +149,9 @@ fun TripFeedbackSheet(
     }
 }
 
+/**
+ * A reusable star rating component.
+ */
 @Composable
 fun StarRating(
     rating: Int, 
@@ -169,6 +178,7 @@ fun StarRating(
                 )
             }
         }
+        // Display the text label corresponding to the selected rating
         Text(
             text = if (rating > 0) labelProvider(rating) else "Select a rating",
             style = MaterialTheme.typography.labelMedium,

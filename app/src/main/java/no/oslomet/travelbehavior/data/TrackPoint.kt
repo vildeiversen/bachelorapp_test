@@ -4,16 +4,20 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-// Lager en Entity (tabell) for å lagre datapunkter (altså definerer datamodellen vår)
+/**
+ * Represents a single GPS location point recorded during a trip.
+ * This class defines the "track_points" table in the Room database.
+ * Indexes are added on timestamp and tripId for faster querying.
+ */
 @Entity(tableName = "track_points", indices = [Index("timestamp"), Index("tripId")])
 data class TrackPoint(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val tripId: String, // NY: For å gruppere punkter per tur
-    // FIKS: Endret til Long for å lagre millisekunder siden midnatt for anonymisering.
-    val timestamp: Long,
-    val lat: Double,
-    val lon: Double,
-    val acc: Float?,
-    // FIKS: Omdøpt fra 'uploaded' til 'isSynced' for konsistens med Trip-tabellen.
-    val isSynced: Boolean = false
+    @PrimaryKey(autoGenerate = true) val id: Long = 0, // Unique identifier for each point
+    val tripId: String, // ID of the trip this point belongs to
+    
+    val timestamp: Long, // Time when the point was captured
+    val lat: Double,     // Latitude coordinate
+    val lon: Double,     // Longitude coordinate
+    val acc: Float?,    // Accuracy of the location in meters
+    
+    val isSynced: Boolean = false // Indicates if the point has been uploaded to the server
 )

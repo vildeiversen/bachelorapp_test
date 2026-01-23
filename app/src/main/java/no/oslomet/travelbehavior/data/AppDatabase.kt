@@ -7,23 +7,36 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [TrackPoint::class, Trip::class], version = 6) // FIKS: Økt versjon for å støtte gjenopptakbar synkronisering
+/**
+ * Main database configuration for the application.
+ * Defines the entities (tables) and the version of the database.
+ */
+@Database(entities = [TrackPoint::class, Trip::class], version = 6)
 abstract class AppDatabase : RoomDatabase() {
+    
+    // DAOs (Data Access Objects) to interact with the database tables
     abstract fun trackPointDao(): TrackPointDao
     abstract fun tripDao(): TripDao
 
     companion object {
-        // FIKS: Definerer en migrering for å omdøpe 'uploaded' til 'isSynced'
-        // HVORFOR: Dette sikrer at eksisterende data ikke går tapt når vi oppdaterer
-        // databasestrukturen. Uten dette ville appen krasjet eller slettet dataen.
+        
+        /**
+         * Migration from version 5 to 6.
+         * Renames the 'uploaded' column to 'isSynced'.
+         */
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE track_points RENAME COLUMN uploaded TO isSynced")
             }
         }
 
+        // Instance to ensure visibility across threads
         @Volatile private var INSTANCE: AppDatabase? = null
 
+        /**
+         * Returns the database singleton.
+         * If it doesn't exist, it creates it.
+         */
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -31,7 +44,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "travel_behavior.db"
                 )
-                // FIKS: Erstatter den destruktive snarveien med en spesifikk oppgradering
                 .addMigrations(MIGRATION_5_6)
                 .build().also { INSTANCE = it }
             }

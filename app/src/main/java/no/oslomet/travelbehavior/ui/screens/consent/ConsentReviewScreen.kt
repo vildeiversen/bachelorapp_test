@@ -15,6 +15,10 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import no.oslomet.travelbehavior.ui.navigation.Screen
 
+/**
+ * Screen that allows users to review the consent agreement they accepted
+ * and provides an option to withdraw their consent.
+ */
 @Composable
 fun ConsentReviewScreen(
     navController: NavController
@@ -33,12 +37,12 @@ fun ConsentReviewScreen(
         Text("Read and Review Consent", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
+        // Reusable card displaying the detailed consent text
         ConsentFormCard(modifier = Modifier.fillMaxWidth())
 
         Spacer(Modifier.height(24.dp))
         
-        // HVA: Advarselstekst som bruker fargetemaet.
-        // HVORFOR: UU-vennlig fargebruk som automatisk tilpasser seg lyst/mørkt tema.
+        // Warning text indicating that withdrawal is permanent
         Text(
             text = "Click here to withdraw your consent. This action cannot be reversed.",
             color = MaterialTheme.colorScheme.error,
@@ -49,23 +53,24 @@ fun ConsentReviewScreen(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center // Senterer for bedre balanse i UI-et
+            horizontalArrangement = Arrangement.Center
         ) {
-            // HVA: Knapp med Material 3 Error-farger.
-            // HVORFOR: Følger MMI-prinsippet om "Visual Affordance" – fargen signaliserer handlingens alvor.
+            // Button to trigger the withdrawal confirmation dialog
+            // Styled with error colors to highlight the severity of the action
             Button(
                 onClick = { showConfirm = true },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ),
-                modifier = Modifier.fillMaxWidth().height(56.dp) // Stor touch-flate for UU
+                modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
                 Text("Withdraw Consent")
             }
         }
     }
 
+    // Confirmation dialog to ensure the user actually wants to withdraw
     if (showConfirm) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
@@ -74,6 +79,7 @@ fun ConsentReviewScreen(
                     onClick = {
                         showConfirm = false
                         scope.launch {
+                            // Revoke consent and navigate back to the initial consent screen
                             consentVm.revoke()
                             navController.navigate(Screen.Consent.route) { popUpTo(0) }
                         }
