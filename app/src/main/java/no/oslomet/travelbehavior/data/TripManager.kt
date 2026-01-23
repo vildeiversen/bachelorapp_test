@@ -7,6 +7,8 @@ import java.util.Calendar
 /**
  * Manages the current trip's state and timing using SharedPreferences.
  * Stores information relative to a "midnight anchor" to handle time persistently.
+ * This is also done for privacy reasons, to avoid storing the specific date of a trip,
+ * which could otherwise be linked to a specific individual.
  */
 object TripManager {
     private const val PREF = "trip_prefs"
