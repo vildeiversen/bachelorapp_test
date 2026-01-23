@@ -1,18 +1,27 @@
 package no.oslomet.travelbehavior.util
 
-// Util klassene er statiske metoder og konstanter, de er ikke ment til å bli instansiert, og
-// rollen deres er å ha et set med gjenbrukbare metoder for applikasjonen
-
 import android.content.Context
 import java.util.UUID
+
+/**
+ * Utility functions for device identification.
+ * reusable methods and provide static-like functionality.
+ */
 
 private const val PREFS = "app_prefs"
 private const val KEY_DEVICE_ID = "device_id"
 
- // Pseudonym enhets-ID som overlever app-restarts, men ikke identifiserer brukeren
+/**
+ * Generates or retrieves a persistent, pseudo-anonymous device ID.
+ * This ID survives app restarts but does not personally identify the user.
+ */
 fun pseudoDeviceId(context: Context): String {
     val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    
+    // Return existing ID if already stored
     prefs.getString(KEY_DEVICE_ID, null)?.let { return it }
+    
+    // Otherwise, generate a new UUID, store it, and return it
     val fresh = "dev-" + UUID.randomUUID().toString()
     prefs.edit().putString(KEY_DEVICE_ID, fresh).apply()
     return fresh

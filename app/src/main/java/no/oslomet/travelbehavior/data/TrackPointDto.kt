@@ -2,18 +2,20 @@ package no.oslomet.travelbehavior.data
 
 import com.google.firebase.firestore.IgnoreExtraProperties
 
-// HVA: En DTO (Data Transfer Object) for TrackPoint.
-// HVORFOR: Vi bruker en egen modell for Firebase for å ha full kontroll over
-// hva som sendes til databasen. Dette gjør det enklere å håndtere
-// fremtidige endringer uten å måtte endre den lokale databasemodellen (TrackPoint).
+/**
+ * Data Transfer Object (DTO) for uploading location points to Firebase Firestore.
+ * The @IgnoreExtraProperties annotation ensures compatibility with potential future fields in Firestore.
+ */
 @IgnoreExtraProperties
 data class TrackPointDto(
-    val timestamp: Long = 0,
-    val timeString: String = "", // FIKS: Nytt felt for lesbar tid
-    val lat: Double = 0.0,
-    val lon: Double = 0.0,
-    val acc: Float? = null
+    val timestamp: Long = 0,    // Time of capture in milliseconds
+    val timeString: String = "", // Formatted time string (e.g., HH:mm:ss)
+    val lat: Double = 0.0,      // Latitude coordinate
+    val lon: Double = 0.0,      // Longitude coordinate
+    val acc: Float? = null      // GPS accuracy in meters (optional)
 ) {
-    // Tom konstruktør er påkrevd av Firebase
+    /**
+     * Required empty constructor for Firebase Firestore deserialization.
+     */
     constructor() : this(0, "", 0.0, 0.0, null)
 }

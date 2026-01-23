@@ -24,6 +24,10 @@ import no.oslomet.travelbehavior.data.TrackPoint
 import no.oslomet.travelbehavior.data.TrackPointDao
 import no.oslomet.travelbehavior.data.TripManager
 
+/**
+ * Foreground service that tracks user location in the background.
+ * It manages a persistent notification and saves location data to the database.
+ */
 class TrackingService : LifecycleService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -38,6 +42,7 @@ class TrackingService : LifecycleService() {
         const val NOTIFICATION_CHANNEL_NAME = "Tracking"
         const val NOTIFICATION_ID = 1
 
+        // StateFlows to expose tracking status and path points to the UI
         private val _isTracking = MutableStateFlow(false)
         val isTracking = _isTracking.asStateFlow()
 
@@ -51,12 +56,14 @@ class TrackingService : LifecycleService() {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
+    /**
+     * Handles incoming intents to start or stop the tracking service.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
             when (it.action) {
                 ACTION_START_SERVICE -> {
                     Log.i("TrackingService", "Tracking service started.")
-                    // FIKS: Ansvaret for å lagre starttid er flyttet til ViewModel.
                     startForegroundService()
                     _isTracking.value = true
                     _pathPoints.value = emptyList()
@@ -69,6 +76,9 @@ class TrackingService : LifecycleService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    /**
+     * Stops location updates and shuts down the foreground service.
+     */
     private fun stopService() {
         Log.i("TrackingService", "Tracking service stopped.")
         _isTracking.value = false
@@ -77,6 +87,9 @@ class TrackingService : LifecycleService() {
         stopSelf()
     }
 
+    /**
+     * Configures and starts location tracking with specific intervals and accuracy.
+     */
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         val request = LocationRequest.create().apply {
@@ -91,6 +104,9 @@ class TrackingService : LifecycleService() {
         )
     }
 
+    /**
+     * Callback receiving location updates, updating UI state, and saving points to the database.
+     */
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             super.onLocationResult(result)
@@ -102,14 +118,14 @@ class TrackingService : LifecycleService() {
                     serviceScope.launch {
                         val tripId = TripManager.getTripId(applicationContext) ?: return@launch
                         
-                        // FIKS: Henter midnatt-ankerpunktet for turen.
+                        // Retrieves the midnight anchor for calculating relative timestamps
                         val midnight = TripManager.getTripStartDayMidnight(applicationContext)
                         if (midnight == 0L) {
-                            Log.e("TrackingService", "Klarte ikke hente midnatt-anker. Avbryter lagring av punkt.")
+                            Log.e("TrackingService", "Failed to get midnight anchor. Aborting point storage.")
                             return@launch
                         }
 
-                        // FIKS: Beregner nå millisekunder siden startdagens midnatt.
+                        // Calculates milliseconds since midnight of the start day
                         val millisSinceStartDayMidnight = location.time - midnight
 
                         trackPointDao.insert(
@@ -128,6 +144,9 @@ class TrackingService : LifecycleService() {
         }
     }
 
+    /**
+     * Initializes the foreground service and shows a persistent notification.
+     */
     private fun startForegroundService() {
         startLocationUpdates()
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -146,6 +165,9 @@ class TrackingService : LifecycleService() {
         startForeground(NOTIFICATION_ID, notificationBuilder.build())
     }
 
+    /**
+     * Creates a notification channel required for Android O and above.
+     */
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel(notificationManager: NotificationManager) {
         val channel = NotificationChannel(

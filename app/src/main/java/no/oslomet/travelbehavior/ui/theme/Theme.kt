@@ -11,9 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * Dark color scheme configuration.
+ * Darker background and adjusted greens for better contrast and readability.
+ */
 private val DarkColorScheme = darkColorScheme(
-    // HVA: Endret fra PrimaryGreen til SecondaryGreen
-    // HVORFOR: MMI - Reduserer "visual glare" i mørkt tema, gjør knappen mer behagelig.
+    // Using SecondaryGreen to reduce visual glare in dark mode
     primary = SecondaryGreen,
     onPrimary = TextDark,
     secondary = SecondaryGreen,
@@ -32,6 +35,10 @@ private val DarkColorScheme = darkColorScheme(
     onError = TextDark
 )
 
+/**
+ * Light color scheme configuration.
+ * maintains the brands identity by using Primary and Dark greens.
+ */
 private val LightColorScheme = lightColorScheme(
     primary = DarkGreen,
     onPrimary = TextLight,
@@ -51,9 +58,14 @@ private val LightColorScheme = lightColorScheme(
     onError = TextLight
 )
 
+/**
+ * Main theme wrapper for the application.
+ * Manages the switch between light and dark modes.
+ */
 @Composable
 fun BachelorAppH2025Theme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    // Dynamic color is disabled to preserve the green brand identity
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

@@ -9,6 +9,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import no.oslomet.travelbehavior.ui.navigation.Screen
 
+/**
+ * Settings screen where the user can review privacy and consent settings.
+ */
 @Composable
 fun SettingsScreen(
     navController: NavController,

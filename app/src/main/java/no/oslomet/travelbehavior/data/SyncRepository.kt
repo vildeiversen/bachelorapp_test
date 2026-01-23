@@ -5,27 +5,34 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import no.oslomet.travelbehavior.network.toDto
 
+/**
+ * Repository responsible for synchronizing local trip data with Firebase.
+ */
 class SyncRepository(
     private val tripDao: TripDao,
     private val trackPointDao: TrackPointDao,
     private val remote: FirebaseRepository
 ) {
 
+    /**
+     * Synchronizes a single trip by uploading its points and metadata to Firebase.
+     * After a successful sync, the local data is deleted.
+     */
     suspend fun syncSingleTrip(trip: Trip) = withContext(Dispatchers.IO) {
         Log.d("SyncRepository", "Starting resumable sync for local trip ID: ${trip.id}")
 
         try {
-            // STEG 1: Hent eller opprett Firebase ID
+            // Step 1: Ensure the trip exists in Firebase and has a linked ID
             val firebaseTripId = trip.firebaseTripId ?: run {
                 Log.d("SyncRepository", "No Firebase ID found. Creating new trip in Firebase.")
                 val newId = remote.startTrip(trip.startTimestamp)
-                // Kritisk: Lagre koblingen lokalt umiddelbart!
+                
                 tripDao.setFirebaseId(trip.id, newId)
                 Log.d("SyncRepository", "Linked local trip ${trip.id} to Firebase trip $newId.")
                 newId
             }
 
-            // STEG 2: Last opp usynkroniserte punkter i grupper
+            // Step 2: Upload all unsynced track points in chunks
             val unsyncedPoints = trackPointDao.getUnsyncedTrackPointsForTrip(trip.id)
             if (unsyncedPoints.isNotEmpty()) {
                 Log.d("SyncRepository", "Found ${unsyncedPoints.size} unsynced points for trip $firebaseTripId.")
@@ -33,14 +40,14 @@ class SyncRepository(
                     val pointDtos = chunk.map { it.toDto() }
                     remote.addTrackPointsBatch(firebaseTripId, pointDtos)
 
-                    // Kritisk: Marker denne gruppen som synkronisert lokalt
+                    // Mark points as synced locally to prevent duplicate uploads
                     val uploadedIds = chunk.map { it.id }
                     trackPointDao.markAsSynced(uploadedIds)
                     Log.d("SyncRepository", "Synced a chunk of ${chunk.size} points.")
                 }
             }
 
-            // STEG 3: Fullfør turen i Firebase
+            // Step 3: Finalize the trip in Firebase with ratings and end timestamp
             Log.d("SyncRepository", "All points synced. Ending trip $firebaseTripId in Firebase.")
             remote.endTrip(
                 tripId = firebaseTripId,
@@ -51,8 +58,7 @@ class SyncRepository(
                 delayComment = trip.delayComment
             )
 
-            // FIKS: STEG 4: Slett turen og punktene lokalt etter vellykket opplasting.
-            // HVORFOR: Forhindrer at den lokale databasen vokser i det uendelige.
+            // Step 4: Clean up local database after successful synchronization
             Log.d("SyncRepository", "Sync successful. Deleting local trip ${trip.id} and its points.")
             trackPointDao.deleteByTripId(trip.id)
             tripDao.deleteById(trip.id)
@@ -60,7 +66,7 @@ class SyncRepository(
 
         } catch (e: Exception) {
             Log.e("SyncRepository", "Resumable sync failed for trip ${trip.id}. It will be retried later.", e)
-            // Viktig: Kast unntaket videre slik at TripSyncWorker vet at den må prøve på nytt
+            // Rethrow the error so WorkManager can retry the sync later
             throw e
         }
     }

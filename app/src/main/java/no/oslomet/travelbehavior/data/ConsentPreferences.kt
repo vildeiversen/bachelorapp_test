@@ -9,25 +9,28 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// ---------- DataStore singleton (TOP-LEVEL!) ----------
+// Name of the DataStore file for consent preferences
 private const val DS_NAME = "consent_prefs"
-// NOTE: this must be top-level (outside any class)
+
+// Context extension to access consent DataStore
 val Context.consentDataStore by preferencesDataStore(name = DS_NAME)
 
-// ---------- Keys ----------
+// Preference keys used for consent storage
 private object Keys {
     val CONSENT_GIVEN = booleanPreferencesKey("consent_given")
     val CONSENT_VERSION = intPreferencesKey("consent_version_accepted")
 }
 
 /**
- * The concrete implementation of the [ConsentRepository] that uses DataStore.
- * This class is now the "real" repository that talks to the device storage.
+ * DataStore implementation of the ConsentRepository interface.
+ * Used to store and retrieve user consent preferences.
  */
 class ConsentRepositoryImpl(private val context: Context) : ConsentRepository {
 
+    // The current version of the consent agreement
     private val CURRENT_CONSENT_VERSION: Int = 1
 
+    // Checks if the user has accepted the most recent consent version
     override fun hasGivenConsent(): Flow<Boolean> {
         return context.consentDataStore.data.map { prefs ->
             val given = prefs[Keys.CONSENT_GIVEN] ?: false
@@ -36,12 +39,14 @@ class ConsentRepositoryImpl(private val context: Context) : ConsentRepository {
         }
     }
 
+    // Returns the version number of the accepted consent
     override fun getConsentVersion(): Flow<Int> {
         return context.consentDataStore.data.map { prefs ->
             prefs[Keys.CONSENT_VERSION] ?: 0
         }
     }
 
+    // Saves the user's consent choice and version number
     override suspend fun saveConsent(given: Boolean, version: Int) {
         context.consentDataStore.edit { prefs ->
             prefs[Keys.CONSENT_GIVEN] = given

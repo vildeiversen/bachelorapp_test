@@ -24,6 +24,9 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import no.oslomet.travelbehavior.ui.navigation.Screen
 
+/**
+ * Main tracking screen that manages location permissions and initializes the tracking UI.
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun TrackingScreen(
@@ -31,15 +34,18 @@ fun TrackingScreen(
     navController: NavController,
     viewModel: TrackingViewModel
 ) {
+    // permissions need to run location tracking (API-dependent)
     val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.POST_NOTIFICATIONS)
     } else {
         listOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
+    // State management for location and notification permissions
     val permissionState = rememberMultiplePermissionsState(
         permissions = requiredPermissions,
         onPermissionsResult = { permissions ->
+            // Automatically start tracking if all requested permissions are granted
             if (permissions.all { it.value }) {
                 viewModel.startTracking()
             }
@@ -54,6 +60,9 @@ fun TrackingScreen(
     )
 }
 
+/**
+ * Displays either the active tracking map or a start button depending on the tracking state.
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun TrackingScreenContent(
@@ -61,15 +70,17 @@ fun TrackingScreenContent(
     viewModel: TrackingViewModel,
     navController: NavController,
     permissionState: MultiplePermissionsState,
-    mapProperties: MapProperties = MapProperties(isMyLocationEnabled = true) // New parameter
+    mapProperties: MapProperties = MapProperties(isMyLocationEnabled = true) 
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isTracking) {
+        // Map configuration when tracking is active
         val cameraPositionState = rememberCameraPositionState {
             position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 12f)
         }
 
+        // Automatically move and zoom the camera to follow the latest recorded point
         LaunchedEffect(uiState.pathPoints) {
             uiState.pathPoints.lastOrNull()?.let { lastPoint ->
                 cameraPositionState.animate(
@@ -83,10 +94,10 @@ fun TrackingScreenContent(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                //properties = MapProperties(isMyLocationEnabled = true), //Old code. Remove commenting on this line and the lines with "//New paramater" to reverse.
-                properties = mapProperties, // New parameter
+                properties = mapProperties,
                 uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
             ) {
+                // Draw a red polyline to visualize the recorded travel path
                 if (uiState.pathPoints.size > 1) {
                     Polyline(
                         points = uiState.pathPoints,
@@ -96,6 +107,7 @@ fun TrackingScreenContent(
                 }
             }
 
+            // Button to finish the current trip and navigate to the summary/save screen
             Button(
                 onClick = {
                     viewModel.stopTracking()?.let { tripId ->
@@ -105,8 +117,7 @@ fun TrackingScreenContent(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(24.dp),
-                // HVA: Endret fra TextLight til MaterialTheme.colorScheme.onPrimary
-                // HVORFOR: UU-kontrast! Sikrer at teksten blir mørk i Dark Mode.
+                // Using onPrimary ensures text visibility and contrast in both light and dark modes
                 colors = ButtonDefaults.buttonColors(contentColor = MaterialTheme.colorScheme.onPrimary)
             )
             {
@@ -114,6 +125,7 @@ fun TrackingScreenContent(
             }
         }
     } else {
+        // Idle state: Centered button to initiate tracking and permission requests
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -126,7 +138,6 @@ fun TrackingScreenContent(
                         permissionState.launchMultiplePermissionRequest()
                     }
                 },
-                // HVA: Endret fra TextLight til MaterialTheme.colorScheme.onPrimary
                 colors = ButtonDefaults.buttonColors(contentColor = MaterialTheme.colorScheme.onPrimary)
             ) {
                 Text("Start Tracking Route")

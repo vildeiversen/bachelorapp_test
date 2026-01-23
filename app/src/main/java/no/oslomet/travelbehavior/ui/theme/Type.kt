@@ -6,8 +6,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+/**
+ * Standard text styles for body text, titles, and button labels to maintain visual consistency.
+ */
 val Typography = Typography(
-    // Default body text
+    // Primary body text for descriptions and general information.
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
@@ -16,7 +19,7 @@ val Typography = Typography(
         letterSpacing = 0.2.sp
     ),
 
-    // Section/screen titles
+    // Headline style for screen titles and important section headers.
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
@@ -25,7 +28,7 @@ val Typography = Typography(
         letterSpacing = 0.sp
     ),
 
-    // Button text (labels)
+    // Text style for buttons and small labels.
     labelLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,

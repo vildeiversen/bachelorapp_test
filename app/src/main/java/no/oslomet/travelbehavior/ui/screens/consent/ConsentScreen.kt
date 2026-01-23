@@ -14,16 +14,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 
+/**
+ * Screen displayed during onboarding to obtain user consent for data collection.
+ */
 @Composable
 fun ConsentScreen(
-    agreeChecked: Boolean,
-    onAgreeChange: (Boolean) -> Unit,
-    onAccept: () -> Unit,
-    onDecline: () -> Unit
+    agreeChecked: Boolean,           // State of the agreement checkbox
+    onAgreeChange: (Boolean) -> Unit, // Callback when checkbox state changes
+    onAccept: () -> Unit,             // Callback when the user accepts
+    onDecline: () -> Unit             // Callback when the user declines
 ) {
     val ctx = LocalContext.current
     val back = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
+    /**
+     * Helper to open links (emails or websites) from the consent text.
+     */
     fun openExternal(uri: String) {
         val intent = when {
             uri.startsWith("mailto:", ignoreCase = true) ->
@@ -42,7 +48,8 @@ fun ConsentScreen(
             )
             Spacer(Modifier.height(8.dp))
 
-            // Scrollable area that contains the reusable consent card
+            // Scrollable area that contains the reusable consent card.
+            // A border is added to clearly separate the legal text from the rest of the UI.
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -51,7 +58,7 @@ fun ConsentScreen(
                     .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
                     .padding(12.dp)
             ) {
-                // Reusable card (content defined in ConsentContent.kt)
+                // Reusable card component (defined in ConsentContent.kt)
                 ConsentFormCard(
                     modifier = Modifier.fillMaxWidth(),
                     onOpenUrlFallback = ::openExternal
@@ -60,11 +67,12 @@ fun ConsentScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // Checkbox for the user to confirm they have read the terms
             Row {
                 Checkbox(
                     checked = agreeChecked,
                     onCheckedChange = onAgreeChange,
-                    modifier = Modifier.testTag("agree_checkbox") // Added testTag
+                    modifier = Modifier.testTag("agree_checkbox")
                 )
                 Spacer(Modifier.width(8.dp))
                 Text("I have read and agree to the terms above.")
@@ -72,6 +80,7 @@ fun ConsentScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // Action buttons: Decline exits/goes back, Accept continues if checkbox is checked
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -85,7 +94,7 @@ fun ConsentScreen(
 
                 Button(
                     modifier = Modifier.weight(1f),
-                    enabled = agreeChecked,
+                    enabled = agreeChecked, // Button is only clickable if terms are agreed to
                     onClick = onAccept
                 ) {
                     Text("Accept & Continue")

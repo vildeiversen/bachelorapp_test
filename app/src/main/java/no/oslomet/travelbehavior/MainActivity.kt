@@ -41,6 +41,10 @@ import no.oslomet.travelbehavior.ui.screens.consent.ConsentVMFactory
 import no.oslomet.travelbehavior.ui.screens.consent.ConsentReviewScreen
 import no.oslomet.travelbehavior.ui.screens.tracking.TripSummaryScreen
 
+/**
+ * App entry activity.
+ * Sets theme and renders the root (AppShell).
+ */
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,19 +58,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * root composable that own NavController, shared ViewModels,
+ * and app-level Scaffold (top bar and bottom navigation).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppShell() {
     val navController = rememberNavController()
     val app = (LocalContext.current.applicationContext as Application)
 
-    // Henter ViewModel-ene vi trenger for å vite status i appen
+    // ViewModels for managing global state like consent and active tracking
     val consentVm: ConsentViewModel = viewModel(factory = ConsentVMFactory(app))
-    val trackingVm: TrackingViewModel = viewModel() // Vi trenger denne for å vite isTracking status
+    val trackingVm: TrackingViewModel = viewModel()
 
     val ui = consentVm.ui.collectAsState().value
     val trackingState by trackingVm.uiState.collectAsState()
 
+    // Determine starting screen based on loading and consent status
     val start = when {
         ui.isLoading       -> Screen.Splash.route
         ui.consentRequired -> Screen.Consent.route
@@ -76,11 +85,11 @@ fun AppShell() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // HVA: Dynamisk tittel som nå også sjekker om sporing faktisk er aktiv.
-    // HVORFOR: Gir mer presis feedback til brukeren (MMI).
+    // Dynamic title logic: Updates based on current route and tracking status
     val topBarTitle = when {
         currentRoute == Screen.Home.route -> "Travel Behaviour"
         currentRoute == "tracking_screen" -> {
+            // Show active tracking status in title for better user feedback
             if (trackingState.isTracking) "Currently Tracking Route" else "Travel Behaviour"
         }
         currentRoute?.startsWith(Screen.SaveTrip.route.split("/")[0]) == true -> "Route Summary"
@@ -89,10 +98,12 @@ fun AppShell() {
         else -> "Travel Behaviour"
     }
 
+    // Controls visibility of navigation components
     val showBottomBar = currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route
 
     Scaffold(
         topBar = {
+            // Only show TopAppBar on main content screens
             if (currentRoute != Screen.Consent.route && currentRoute != Screen.Splash.route) {
                 TopAppBar(
                     title = { Text(topBarTitle) }
@@ -110,10 +121,12 @@ fun AppShell() {
             startDestination = start,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // Splash/Loading state
             composable(Screen.Splash.route) {
                 androidx.compose.foundation.layout.Box(Modifier)
             }
 
+            // Legal/Onboarding flow
             composable(Screen.Consent.route) {
                 ConsentScreen(
                     agreeChecked = ui.agreeChecked,
@@ -127,21 +140,23 @@ fun AppShell() {
                 )
             }
 
+            // Review accepted terms from settings
             composable(Screen.ConsentReview.route) {
                 ConsentReviewScreen(navController = navController)
             }
 
+            // Main application screens
             composable(Screen.Home.route) { HomeScreen() }
             composable(route = Screen.Settings.route) {
                 SettingsScreen(navController = navController)
             }
 
+            // Tracking sub-graph containing map and post-trip summary
             navigation(
                 startDestination = "tracking_screen",
                 route = Screen.Tracking.route
             ) {
                 composable("tracking_screen") { backStackEntry ->
-                    // Vi gjenbruker trackingVm som vi allerede har hentet øverst
                     TrackingScreen(navController = navController, viewModel = trackingVm)
                 }
 

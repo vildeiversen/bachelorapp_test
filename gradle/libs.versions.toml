@@ -1,3 +1,6 @@
+# Central version catalog for dependencies and plugins.
+# keeps versions consistent across the project.
+
 [versions]
 agp = "8.13.2"
 kotlin = "2.0.21"

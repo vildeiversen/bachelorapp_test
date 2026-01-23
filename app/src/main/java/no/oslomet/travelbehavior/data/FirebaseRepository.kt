@@ -8,10 +8,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Handles user-scoped trip and track-point synchronization with Firebase.
+ */
 class FirebaseRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    /**
+     * Ensures the user is signed in anonymously before performing any Firebase operations.
+     */
     private suspend fun ensureSignedInAnonymously() {
         if (auth.currentUser == null) {
             Log.d("FirebaseRepo", "User not signed in. Attempting anonymous sign-in...")
@@ -20,6 +26,9 @@ class FirebaseRepository(
         }
     }
 
+    /**
+     * Returns a reference to the current authenticated user's document in the "users" collection.
+     */
     private fun userRoot(): com.google.firebase.firestore.DocumentReference {
         val userId = auth.currentUser?.uid
             ?: throw IllegalStateException("Error: Cannot perform Firebase operation because user is not signed in.")
@@ -28,6 +37,9 @@ class FirebaseRepository(
 
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
+    /**
+     * Creates a new trip document in Firestore when a trip starts and returns its generated ID.
+     */
     suspend fun startTrip(startTimestamp: Long): String {
         ensureSignedInAnonymously()
         val tripRef = userRoot().collection("trips").document()
@@ -42,6 +54,9 @@ class FirebaseRepository(
         return tripRef.id
     }
 
+    /**
+     * Finalizes an existing trip document with end time, ratings, and comments.
+     */
     suspend fun endTrip(
         tripId: String,
         endTimestamp: Long,
@@ -64,6 +79,9 @@ class FirebaseRepository(
         Log.d("FirebaseRepo", "Ended and rated trip in Firebase with ID: $tripId")
     }
 
+    /**
+     * Uploads track-points for a trip using Firestore batches (max 500 per batch).
+     */
     suspend fun addTrackPointsBatch(tripId: String, points: List<TrackPointDto>) {
         ensureSignedInAnonymously()
         val tripPointsCollection = userRoot().collection("trips").document(tripId).collection("track_points")
@@ -80,6 +98,9 @@ class FirebaseRepository(
     }
 }
 
+/**
+ * Data Transfer Object for trip data sent to Firebase.
+ */
 data class TripDTO(
     val startedAt: Long? = null,
     val startedAtString: String? = null,
