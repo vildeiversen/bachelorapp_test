@@ -42,7 +42,7 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 
 /**
- * Screen where users can review their finished trip, provide feedback (ratings),
+ * Screen where users can review their finished trip, provide feedback and rating,
  * and choose to save or delete the recorded data.
  */
 @Composable
