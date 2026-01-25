@@ -24,13 +24,29 @@ This Android application is developed as part of a bachelor thesis at **Oslo Met
 
 ## Getting Started
 
-1. **Clone the repository:**
+1. **Clone the repository**
 2. **Setup Google Maps API:**
    - Add your `MAPS_API_KEY` to `local.properties` or `AndroidManifest.xml`.
 3. **Setup Firebase:**
    - Add your `google-services.json` to the `app/` directory.
 4. **Build and Run:**
    - Open the project in **Android Studio Ladybug (or newer)** and run on a device with API level 25+.
+  
+## Data Flow 
+
+The application is built using an offline-first architecture to ensure that data is never lost.
+
+- **Local Storage (Room):**  
+  All trips are first stored in a local Room database. This makes the data immediately available in the app, even when there is no internet connection.
+
+- **Background Synchronization (WorkManager & Firebase):**  
+  When a network connection becomes available, a background task automatically uploads trip data from the local database to Firebase Firestore.
+
+- **Data Integrity:**  
+  After a successful upload, the trip is deleted from the local database to prevent data duplication and unnecessary storage usage.
+
+This entire flow can be observed using Android Studio’s App Inspection tool. By toggling the device’s network connection off and on, it is possible to see how data is first stored locally and then synchronized to the cloud.
+
 
 ## Privacy & Data Handling
 
