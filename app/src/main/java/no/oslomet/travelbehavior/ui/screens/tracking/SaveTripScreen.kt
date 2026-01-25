@@ -32,14 +32,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
 
 /**
  * Screen where users can review their finished trip, provide feedback and rating,
@@ -153,6 +156,8 @@ private fun TripSummaryPreview(
 
     val trackPoints by viewModel.trackPoints.collectAsState()
     val latLngs = trackPoints.map { LatLng(it.lat, it.lon) }
+    val startPoint = latLngs.firstOrNull()
+    val endPoint = latLngs.lastOrNull()
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(59.9139, 10.7522), 10f)
@@ -193,6 +198,24 @@ private fun TripSummaryPreview(
             ) {
                 if (latLngs.isNotEmpty()) {
                     Polyline(points = latLngs)
+                }
+
+                // Add marker for the start point
+                startPoint?.let {
+                    Marker(
+                        state = rememberMarkerState(position = it),
+                        title = "Start of Trip",
+                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+                    )
+                }
+
+                // Add marker for the end point
+                endPoint?.let {
+                    Marker(
+                        state = rememberMarkerState(position = it),
+                        title = "End of Trip",
+                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+                    )
                 }
             }
             // Overlay to handle clicks and navigate to a full trip summary

@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
@@ -46,6 +47,8 @@ fun TripSummaryScreen(
 
     // Map track point entities to LatLng objects for Google Maps.
     val latLngs = trackPoints.map { LatLng(it.lat, it.lon) }
+    val startPoint = latLngs.firstOrNull()
+    val endPoint = latLngs.lastOrNull()
 
     // State for managing camera position, zoom, and animations.
     val cameraPositionState = rememberCameraPositionState {
@@ -87,6 +90,24 @@ fun TripSummaryScreen(
                 // Visualize the travel path with a Polyline.
                 if (latLngs.isNotEmpty()) {
                     Polyline(points = latLngs)
+                }
+
+                // Add marker for the start point
+                startPoint?.let {
+                    Marker(
+                        state = rememberMarkerState(position = it),
+                        title = "Start of Trip",
+                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+                    )
+                }
+
+                // Add marker for the end point
+                endPoint?.let {
+                    Marker(
+                        state = rememberMarkerState(position = it),
+                        title = "End of Trip",
+                        icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+                    )
                 }
             }
         }
