@@ -75,7 +75,7 @@ class E2ESystemTest {
     fun userCanDeclineConsent() {
         composeTestRule.onNodeWithText("Decline").performClick()
         composeTestRule.waitForIdle()
-        // Note: finish() check is currently disabled due to MainActivity implementation
+        // Note: Explicit finish() check is disabled as the app currently exits via system onBackPressed() within the UI component, while the onDecline callback in MainActivity remains empty.
     }
 
     /** AC-04: Verifies navigation between main screens (Tracking, Settings, Home) using the bottom navigation bar. */

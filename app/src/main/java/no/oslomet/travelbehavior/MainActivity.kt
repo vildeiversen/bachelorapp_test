@@ -136,6 +136,8 @@ fun AppShell() {
                             navController.navigate(Screen.Home.route) { popUpTo(0) }
                         }
                     },
+                    // Callback for when the user declines the consent terms. Currently empty as the ConsentScreen component handles the app exit via onBackPressed.
+                    // Reserved for future implementation (for example an exit message).
                     onDecline = { }
                 )
             }
