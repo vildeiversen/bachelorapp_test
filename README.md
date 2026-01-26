@@ -26,9 +26,9 @@ This Android application is developed as part of a bachelor thesis at **Oslo Met
 
 1. **Clone the repository**
 2. **Setup Google Maps API (only necessary if you want Google Maps features):**
-   - Add your `MAPS_API_KEY` to `local.properties` or `AndroidManifest.xml`.
+   - Add your `MAPS_API_KEY` from your own Google Console Project to `AndroidManifest.xml`.
 3. **Setup Firebase (necessary for the app to run):**
-   - Add your `google-services.json` from Firebase project to the `app/` directory.
+   - Add your `google-services.json` file from your own Firebase project to the `app/` directory.
 4. **Build and Run:**
    - Open the project in **Android Studio Ladybug (or newer)** and run on a device with API level 25+.
   
