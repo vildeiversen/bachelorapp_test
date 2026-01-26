@@ -39,7 +39,8 @@ The app will not run without a Firebase backend.
 This is only necessary if you want Google Maps features
 - In your Google Cloud project, enable the **Maps SDK for Android**.
 - Create an API Key.
-- Add the key to `AndroidManifest.xml` file
+- Open the `AndroidManifest.xml` file.
+- Find the `<meta-data>` tag with the name `com.google.android.geo.API_KEY` and paste your key into the `android:value` attribute.
 
 ### 4. Build and Run
 Sync the project with Gradle. The app should now build and run on a device with API level 26 or higher.
