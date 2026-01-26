@@ -22,15 +22,27 @@ This Android application is developed as part of a bachelor thesis at **Oslo Met
 - **Navigation:** Jetpack Compose Navigation with nested graphs.
 - **Permissions:** Accompanist Permissions for location and notification handling.
 
-## Getting Started
+## Travel Behavior App - Setup Guide
 
-1. **Clone the repository**
-2. **Setup Google Maps API (only necessary if you want Google Maps features):**
-   - Add your `MAPS_API_KEY` from your own Google Console Project to `AndroidManifest.xml`.
-3. **Setup Firebase (necessary for the app to run):**
-   - Add your `google-services.json` file from your own Firebase project to the `app/` directory.
-4. **Build and Run:**
-   - Open the project in **Android Studio Ladybug (or newer)** and run on a device with API level 25+.
+This guide outlines the necessary configuration to build and run the project.
+
+### 1. Clone the Repository
+Clone this repository and open it in Android Studio (Hedgehog or newer).
+
+### 2. Configure Firebase
+The app will not run without a Firebase backend.
+- Create a project in the Firebase Console.
+- In your project, enable **Anonymous Authentication** and **Cloud Firestore**.
+- Download the `google-services.json` file and place it in the `app/` directory.
+
+### 3. Configure Google Maps API
+This is only necessary if you want Google Maps features
+- In your Google Cloud project, enable the **Maps SDK for Android**.
+- Create an API Key.
+- Add the key to `AndroidManifest.xml` file
+
+### 4. Build and Run
+Sync the project with Gradle. The app should now build and run on a device with API level 26 or higher.
   
 ## Data Flow 
 
