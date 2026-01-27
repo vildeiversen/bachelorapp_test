@@ -9,10 +9,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="no.oslomet.travelbehavior" />
-                  <option name="mobileSdkAppId" value="1:959892273889:android:db031a8d193f629c6ed5a0" />
-                  <option name="projectId" value="bachelorapp-dd53e" />
-                  <option name="projectNumber" value="959892273889" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
